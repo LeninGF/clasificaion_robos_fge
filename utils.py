@@ -779,3 +779,15 @@ def crear_columna_involucrado_sencillo(dataf, col_involucrado='TIPO_INVOLUCRADO'
         col_involucrado (str, optional): nombre de la columna con los valores de tipo de inovlucrado. Defaults to 'TIPO_INVOLUCRADO'.
     """
     dataf['INVOLUCRADO_SENCILLO'] = dataf[col_involucrado].apply(lambda x: devolver_involucrado_sencillo(x))
+    
+    
+def camel_case_string_noPoint(string):
+    """
+    This function permits to reformat the name of the columns of a dataframe
+    in camel case style
+
+    example: df.columns = [camel_case_string(x) for x in df.columns]
+    """
+    string =  re.sub(r"(_|-|\.)+", " ", string).title().replace(" ", "")
+    string = string[0].lower() + string[1:]
+    return string
