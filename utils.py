@@ -788,6 +788,6 @@ def camel_case_string_noPoint(string):
 
     example: df.columns = [camel_case_string(x) for x in df.columns]
     """
-    string =  re.sub(r"(_|-|\.)+", " ", string).title().replace(" ", "")
+    string =  re.sub(r"(_|-|,\.)+", " ", string).title().replace(" ", "")
     string = string[0].lower() + string[1:]
     return string
