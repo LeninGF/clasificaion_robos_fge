@@ -55,3 +55,8 @@ Project Organization
 --------
 
 <p><small>Project based on the <a target="_blank" href="https://drivendata.github.io/cookiecutter-data-science/">cookiecutter data science project template</a>. #cookiecutterdatascience</small></p>
+
+## Preguntas
+
+1. Se puede realizar la predicción de $N$ registros en lotes usando las facilidades de la librería dataset de huggingFace? Esto, pienso se logra usando el modelo en formato tensorflow y generando previamente los embedings (encoding) de los datos.... pensaría que esto haría que la predicción se haga mucho más eficiente y en menor tiempo.
+2. Cómo se realiza lo anterior usando el pipeline?
