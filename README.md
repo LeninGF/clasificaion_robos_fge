@@ -60,3 +60,12 @@ Project Organization
 
 1. Se puede realizar la predicción de $N$ registros en lotes usando las facilidades de la librería dataset de huggingFace? Esto, pienso se logra usando el modelo en formato tensorflow y generando previamente los embedings (encoding) de los datos.... pensaría que esto haría que la predicción se haga mucho más eficiente y en menor tiempo.
 2. Cómo se realiza lo anterior usando el pipeline?
+
+## Procedimiento delitos validados
+
+1. Se genera duplicado del datasetgen.ipynb como datasetgen_delitosvalidados.ipynb
+2. Se procede a leer la base de datos con relatos Policia y Fiscalía y la base original con datos de la comisión que no ha sido alterada. Se restringe las operaciones conservando las ndds de la comisión
+3. Se ajusta las categorías segun lo solicitado por Comisión en un total de 10 categorías más otros robos
+4. Se procede a tratar de reutilizar el dataset_trainset_split.ipynb para separar los datos. Sin embargo, se tratará de hacer que se disponga del doble de relatos para que ingresen tanto el relato de policia como el de fiscalia
+5. se obtiene los juegos de datos de entrenamiento, validación y testeo y se procede al entrenamiento
+
