@@ -41,7 +41,17 @@ def conectar_sql(big_data_bbdd=True):
     
     
 def format_crimestory(relato_label, dataf):
-    
+    """format_crimestory
+    This function gives format to the text of Ndd by 
+    chaging the letters to lower string format,  removing
+    any character that is not a letter or a number, which removes 
+    punctuation by the momment and removes unnecessary spaces
+    at the beginning or end of the string
+
+    Args:
+        relato_label (_str_): name of the column where the text is stored
+        dataf (_dataframe_): dataframe that has a column with the text of the Ndd
+    """
     dataf[relato_label] = dataf[relato_label].str.lower()
     dataf[relato_label] = dataf[relato_label].str.replace("[^A-Za-z0-9áéíóúñ]+", " ", regex=True)
     dataf[relato_label] = dataf[relato_label].str.strip()
@@ -114,9 +124,9 @@ def predict_text_class(dataf, model, label_relato= 'd_RELATO_SIAF',label_name='d
     dataf[[label_name, label_name+'_SCORE']] = dataf.apply(lambda x: predictLabelAndScore(relato=x[label_relato], classifier=model) if x[words_qty_label] >=threshold_words_qty else ("N/A", 0), axis=1, result_type='expand')
     
     
-def predict_text_class_tqdm(dataf, model, label_relato= 'd_RELATO_SIAF',label_name='d_DELITOS_SEGUIMIENTO', words_qty_label='d_CANTIDAD_PALABRAS', threshold_words_qty=50):
+def predict_text_class_tqdm(dataf, model, label_relato= 'd_RELATO_SIAF',label_name='d_DELITOS_SEGUIMIENTO', score_label=None, words_qty_label='d_CANTIDAD_PALABRAS', threshold_words_qty=50):
     """predict_text_class_tqdm
-        Classfies the given text according to model. It includes tqdm to evaluate progress
+        Classifies the given text according to model. It includes tqdm to evaluate progress
     Args:
         dataf (_type_): dataframe that contains the text to be classified
         model (_type_): model to be used. must be a hugging face pipeline pre-loaded
@@ -125,8 +135,10 @@ def predict_text_class_tqdm(dataf, model, label_relato= 'd_RELATO_SIAF',label_na
         words_qty_label (str, optional): name of the column with the number of words. Defaults to 'd_CANTIDAD_PALABRAS'.
         threshold_words_qty (int, optional): constant value to consider valid text to be classified. Defaults to 50.
     """
+    if score_label is None:
+        score_label = label_name + '_SCORE'
     tqdm.pandas()
-    dataf[[label_name, label_name+'_SCORE']] = dataf.progress_apply(lambda x: predictLabelAndScore(relato=x[label_relato], classifier=model) if x[words_qty_label] >=threshold_words_qty else ("N/A", 0), axis=1, result_type='expand')
+    dataf[[label_name, score_label]] = dataf.progress_apply(lambda x: predictLabelAndScore(relato=x[label_relato], classifier=model) if x[words_qty_label] >=threshold_words_qty else ("N/A", 0), axis=1, result_type='expand')
     
     
 # def update_predictLabelAndScoreDaaS(label_relato, classifier, words_qty_label,threshold_words_qty, y_predicted, score, status):
@@ -155,6 +167,41 @@ def predict_text_class_DaaS_tqdm(dataf, model, label_relato= 'RELATO',label_name
     # HAY UN PROBLEMA EN EL APPLY, SE REQUIERE QUE ME PONGA N/A SI ERA CANTIDAD PALABRAS MENOS DE 50 Y ESTADO 0, PERO SI EL ESTADO ML ES 1, DEBE QUEDAR EL MISMO VALOR
     # dataf[[label_name, label_name+'_SCORE', status]] = dataf.progress_apply(lambda x: predictLabelAndScoreDaaS(relato=x[label_relato], classifier=model) if x[words_qty_label] >=threshold_words_qty and x[status]==0 else ("N/A", 0, 0), axis=1, result_type='expand')
     dataf[[label_name, label_name+'_SCORE', status]] = dataf.progress_apply(lambda x: predictLabelAndScoreDaaS(relato=x[label_relato], classifier=model, actual_label=x[label_name], actual_score=x[label_score], words_qty=x[words_qty_label], threshold_words_qty=threshold_words_qty, status=x[status]), axis=1, result_type='expand')
+
+
+def predict_text_class_only_new_tqdm(dataf, 
+                                     model, 
+                                     label_relato= 'd_RELATO_SIAF',
+                                     label_name='d_DELITOS_SEGUIMIENTO', 
+                                     score_label=None, 
+                                     words_qty_label='d_CANTIDAD_PALABRAS', 
+                                     threshold_words_qty=50, 
+                                     new_ndds_list=None, 
+                                     ndd_label="NDD"):
+    """predict_text_class_only_new_tqdm
+        Classifies the given text according to model. It includes tqdm to evaluate progress
+        It predicts only new ndds after they've been compared to previous dataset from comission
+    Args:
+        dataf (_type_): dataframe that contains the text to be classified
+        model (_type_): model to be used. must be a hugging face pipeline pre-loaded
+        label_relato (str, optional): name of the column with the text to be classified. Defaults to 'd_RELATO_SIAF'.
+        label_name (str, optional): name of the new column to be returned. Defaults to 'd_DELITOS_SEGUIMIENTO'.
+        words_qty_label (str, optional): name of the column with the number of words. Defaults to 'd_CANTIDAD_PALABRAS'.
+        threshold_words_qty (int, optional): constant value to consider valid text to be classified. Defaults to 50.
+        new_ndds_list: list of new ndds to be predicted
+        ndd_label: name of the column with the NDD values in the dataf 
+    """
+    if score_label is None:
+        score_label = label_name + '_SCORE'
+    tqdm.pandas()
+    dataf[[label_name, score_label]] = dataf.progress_apply(
+        lambda x: predictLabelAndScore(
+            relato=x[label_relato], classifier=model
+            ) 
+            if x[words_qty_label] >=threshold_words_qty and x[ndd_label] in new_ndds_list 
+            else ("N/A", 0), 
+            axis=1, 
+            result_type='expand')
 
 
 def asamblea4_ndd_chunked(sql_conn, lista_ndds, chunk_size=1000):
@@ -330,3 +377,23 @@ def save_df_in_sql(name_table, dataf, index=False, where="bigData", database="re
     dataf.to_sql(name_table, engine_maria_db, if_exists='replace', index=index, chunksize=1000)
     with engine_maria_db.connect() as conn:
         conn.execute(f'ALTER TABLE `{database}`.`{name_table}` CONVERT TO CHARACTER SET utf8 COLLATE utf8_general_ci;')
+        
+
+def train_valid_test_sizer(dataframe_shape, proportion = (0.7,0.2,0.1)):
+    """_train_valid_test_sizer_
+    This function returns the sizes of the train_set, valid_set and test_set
+    considering the proportions given by the tuple
+    Args:
+        datafram_shape (_tuple(rows, columns)_): dataset shape, it must be a tuple of the form (rows, columns)
+        proportion (tuple, optional): Proportion that must sum 1. First argument is train proportion, fallowed by valid proportion and finally test proportion. Defaults to (0.7,0.2,0.1).
+    """
+    train_proprotion, valid_proportion, test_proportion = proportion
+    if round(train_proprotion+valid_proportion+test_proportion, 1) != 1:
+        print(f"proportion {proportion} does not add up to 1, try again")
+        return None
+    rows, cols = dataframe_shape
+    TRAIN_SIZE = rows*train_proprotion
+    VALID_SIZE = rows*valid_proportion
+    TEST_SIZE = rows*test_proportion
+    print(f"Recomended sizes are: TRAIN: {TRAIN_SIZE}, VALID: {VALID_SIZE}, TEST: {TEST_SIZE}")
+    return TRAIN_SIZE, VALID_SIZE, TEST_SIZE
