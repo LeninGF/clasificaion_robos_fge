@@ -31,7 +31,7 @@ from tqdm import tqdm
 
 
 PATH_MODEL_SEGUIMIENTOS = '/home/falconiel/ML_Models/robbery_tf20221113'
-PATH_MODEL_VALIDADOS = '/home/falconiel/ML_Models/robbery_tf20230213'
+PATH_MODEL_VALIDADOS = '/home/falconiel/ML_Models/robbery_validados_tf20231211'
 model_ckpt = "distilbert-base-multilingual-cased"
 SEQ_LEN = 400
 THRESHOLD_WORDS_QTY = 50
