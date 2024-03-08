@@ -19,9 +19,9 @@ from argparse import ArgumentParser
 
 
 PATH_MODEL_SEGUIMIENTOS = '/home/falconiel/ML_Models/robbery_tf20221113'
-PATH_MODEL_VALIDADOS = '/home/falconiel/ML_Models/robbery_tf20230213'
+PATH_MODEL_VALIDADOS = '/home/falconiel/ML_Models/robbery_validados_tf20231211'
 model_ckpt = "distilbert-base-multilingual-cased"
-SEQ_LEN = 300
+SEQ_LEN = 400
 THRESHOLD_WORDS_QTY = 50
 # base de datos que contiene la tabla desde la que se va a leer los datos
 DATABASE_FROM = 'DaaS'  # generalizar para que apunte a cualquier Base de Datos
