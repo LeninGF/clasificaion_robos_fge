@@ -163,10 +163,12 @@ def predict_text_class_DaaS_tqdm(dataf, model, label_relato= 'RELATO',label_name
         threshold_words_qty (int, optional): constant value to consider valid text to be classified. Defaults to 50.
         status str: name of the column that stores the state of the ndd. If 0, the ndd has not been predicted or is a new case, if 1, the ndd has been predicted previously and can be skipped
     """
+    if label_score is None:
+        label_score = label_name+'_SCORE'
     tqdm.pandas()
     # HAY UN PROBLEMA EN EL APPLY, SE REQUIERE QUE ME PONGA N/A SI ERA CANTIDAD PALABRAS MENOS DE 50 Y ESTADO 0, PERO SI EL ESTADO ML ES 1, DEBE QUEDAR EL MISMO VALOR
     # dataf[[label_name, label_name+'_SCORE', status]] = dataf.progress_apply(lambda x: predictLabelAndScoreDaaS(relato=x[label_relato], classifier=model) if x[words_qty_label] >=threshold_words_qty and x[status]==0 else ("N/A", 0, 0), axis=1, result_type='expand')
-    dataf[[label_name, label_name+'_SCORE', status]] = dataf.progress_apply(lambda x: predictLabelAndScoreDaaS(relato=x[label_relato], classifier=model, actual_label=x[label_name], actual_score=x[label_score], words_qty=x[words_qty_label], threshold_words_qty=threshold_words_qty, status=x[status]), axis=1, result_type='expand')
+    dataf[[label_name, label_score, status]] = dataf.progress_apply(lambda x: predictLabelAndScoreDaaS(relato=x[label_relato], classifier=model, actual_label=x[label_name], actual_score=x[label_score], words_qty=x[words_qty_label], threshold_words_qty=threshold_words_qty, status=x[status]), axis=1, result_type='expand')
 
 
 def predict_text_class_only_new_tqdm(dataf, 
@@ -397,3 +399,26 @@ def train_valid_test_sizer(dataframe_shape, proportion = (0.7,0.2,0.1)):
     TEST_SIZE = rows*test_proportion
     print(f"Recomended sizes are: TRAIN: {TRAIN_SIZE}, VALID: {VALID_SIZE}, TEST: {TEST_SIZE}")
     return TRAIN_SIZE, VALID_SIZE, TEST_SIZE
+
+
+def seconds_to_readable_time(seconds):
+    """
+    Converts seconds to a human-readable time format (hours, minutes, seconds).
+    Args:
+        seconds (int): The input duration in seconds.
+    Returns:
+        str: A formatted string representing the time.
+    """
+    minutes, seconds = divmod(int(seconds), 60)
+    hours, minutes = divmod(minutes, 60)
+
+    # Construct the readable time format
+    time_format = ""
+    if hours > 0:
+        time_format += f"{hours} hour{'s' if hours != 1 else ''} "
+    if minutes > 0:
+        time_format += f"{minutes} minute{'s' if minutes != 1 else ''} "
+    if seconds > 0:
+        time_format += f"{seconds} second{'s' if seconds != 1 else ''}"
+
+    return time_format.strip()  # Remove trailing spaces
