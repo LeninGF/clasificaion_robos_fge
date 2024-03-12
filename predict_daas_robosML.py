@@ -12,6 +12,7 @@ from sqlalchemy import text, create_engine
 from src.utils import extraer_relato, conectar_sql, save_df_in_sql
 from src.utils import format_crimestory
 from src.utils import words_qty, predict_text_class_DaaS_tqdm
+from src.utils import seconds_to_readable_time
 from datasets import Dataset
 from src.utils import load_text_classification_model
 from datetime import datetime
@@ -25,13 +26,47 @@ SEQ_LEN = 400
 THRESHOLD_WORDS_QTY = 50
 # base de datos que contiene la tabla desde la que se va a leer los datos
 DATABASE_FROM = 'DaaS'  # generalizar para que apunte a cualquier Base de Datos
-# DELITOS_SEGUIMIENTOS_COLUMNS_NAMES_DICT = {'predictions':'predictionsDelitosSeguimiento',
-#                                             'label':'labelDelitosSeguimiento',
-#                                             'score':'scoreDelitosSeguimiento'}
+# Los siguientes nombres deben guardar con la declaracion que tienen en la base de datos
+DELITOS_SEGUIMIENTOS_COLUMNS_NAMES_DICT = { 'label_name':'delitos_seguimiento_predicted',
+                                            'label_score':'delitos_seguimiento_predicted_score',
+                                            'label_fecha': 'FechaActualizacionDelitosSeguimiento'
+                                            }
                                             
-# DELITOS_VALIDADOS_COLUMNS_NAMES_DICT = {'predictions':'predictionsDelitosValidados',
-#                                         'label':'labelDelitosValidados',
-#                                         'score':'scoreDelitosValidados'}
+DELITOS_VALIDADOS_COLUMNS_NAMES_DICT = {'label_name':'delitos_validados_predicted',
+                                        'label_score':'delitos_validados_predicted_score',
+                                        'label_fecha':'FechaActualizacionDelitosValidados'
+                                        }
+
+
+def predict_robbery_class(dataframe, 
+                          path_model,
+                          label_relato, 
+                          label_name, 
+                          label_score, 
+                          words_qty_label, 
+                          status,
+                          fecha_label, 
+                          model_name):
+    print(f"Cargando Modelo {model_name} desde: {path_model}")
+    model = load_text_classification_model(path2model=path_model,
+                                           seq_len=SEQ_LEN,
+                                           threshold_words_qty=THRESHOLD_WORDS_QTY)
+    print(f"SEQ_LEN:{SEQ_LEN}\nTHRESHOLD_WORDS_QTY:{THRESHOLD_WORDS_QTY}")
+    print(f"Inicia ejecución de prediccion con modelo {model_name}: {datetime.now()}")
+    time_start = time()
+    predict_text_class_DaaS_tqdm(dataf=dataframe,
+                                 model=model,
+                                 label_relato=label_relato,
+                                 label_name=label_name,
+                                 label_score=label_score,
+                                 words_qty_label=words_qty_label,
+                                 threshold_words_qty=THRESHOLD_WORDS_QTY,
+                                 status=status)
+    time_end = time()
+    delta_time = time_end-time_start
+    dataframe[fecha_label] = datetime.now()
+    readable_time = seconds_to_readable_time(delta_time)
+    print(f"Predicción {model_name} concluída {datetime.now()}\nDuración: {readable_time}")
 
 
 def read_all_database_with_crime_story():
@@ -81,58 +116,49 @@ def read_daas_robosML(sample, table_in, database_in):
     return daas_df, 'RELATO'
 
 
-def main(predict_delitos_validados,csv,sql, sample, table_in, update):
+def main(predict_delitos_validados, 
+         predict_delitos_seguimiento, 
+         csv,
+         sql, 
+         sample, 
+         table_in, 
+         update,
+         save_path):
     print(f"Prediccion de Etiquetas Delitos Seguimiento y Delitos Validados Robos en {DATABASE_FROM}.{table_in}")
     xtest_df, LABEL_RELATO = read_daas_robosML(sample=sample, table_in=table_in, database_in=DATABASE_FROM)
     # ahora se debe realizar las predicciones de acuerdo a las caracteristicas
     # limitantes: que sea ndd de robos y con un relato de 50 palabras
     time_report_dict = {}
     if predict_delitos_validados:
-        print(f"Cargando Modelo Delitos Validados: {PATH_MODEL_VALIDADOS}")
-        # carga de modelo de delitos validados
-        modelo_delitos_validados = load_text_classification_model(path2model=PATH_MODEL_VALIDADOS,
-                                                                  seq_len=SEQ_LEN,
-                                                                  threshold_words_qty=THRESHOLD_WORDS_QTY)
-        print(f"SEQ_LEN:{SEQ_LEN}\n THRESHOLD_WORDS_QTY:{THRESHOLD_WORDS_QTY}")
-        print(f"Ejecuntando prediccion Delitos Validados {datetime.now()}")
-        time_start = time()
-        predict_text_class_DaaS_tqdm(dataf=xtest_df,
-                                    model=modelo_delitos_validados,
-                                    label_relato=LABEL_RELATO,
-                                    label_name='delitos_validados_predicted',
-                                    words_qty_label='d_CANTIDAD_PALABRAS',
-                                    threshold_words_qty=THRESHOLD_WORDS_QTY,
-                                    status='ESTADO_ML')
-        time_end = time()
-        print(f"Predicción Delitos Validados concluida {datetime.now()}\nDuración: {time_end-time_start} ")
-        time_report_dict['modelo_validados'] = time_end-time_start
-        xtest_df['FechaActualizacionDelitosValidados'] = datetime.now()
+        predict_robbery_class(dataframe=xtest_df,
+                              path_model=PATH_MODEL_VALIDADOS,
+                              label_relato=LABEL_RELATO,
+                              label_name=DELITOS_VALIDADOS_COLUMNS_NAMES_DICT.get('label_name'),
+                              label_score=DELITOS_VALIDADOS_COLUMNS_NAMES_DICT.get('label_score'),
+                              words_qty_label='d_CANTIDAD_PALABRAS',
+                              status='ESTADO_ML',
+                              fecha_label=DELITOS_VALIDADOS_COLUMNS_NAMES_DICT['label_fecha'],
+                              model_name='delitos_validados')
+    # time_report_dict['modelo_validados'] = time_end-time_start
+
     # predicción por defecto de delitos seguimiento
     
-    print(f"Cargando Modelo Delitos Seguimiento: {PATH_MODEL_SEGUIMIENTOS}")
-    modelo_delitos_seguimiento = load_text_classification_model(path2model=PATH_MODEL_SEGUIMIENTOS,
-                                                                seq_len=SEQ_LEN,
-                                                                threshold_words_qty=THRESHOLD_WORDS_QTY)
-    print(f"SEQ_LEN:{SEQ_LEN}\n THRESHOLD_WORDS_QTY:{THRESHOLD_WORDS_QTY}")
-    print(f"Ejecutando prediccion Delitos Seguimiento {datetime.now()}")
-    time_start = time()
-    predict_text_class_DaaS_tqdm(dataf=xtest_df,
-                                 model=modelo_delitos_seguimiento,
-                                 label_relato=LABEL_RELATO,
-                                 label_name='delitos_seguimiento_predicted',
-                                 label_score='delitos_seguimiento_predicted_SCORE',
-                                 words_qty_label='d_CANTIDAD_PALABRAS',
-                                 threshold_words_qty=THRESHOLD_WORDS_QTY,
-                                 status='ESTADO_ML')
-    time_end = time()
-    print(f"Predicción Delitos Seguimiento concluida {datetime.now()}\nDuración: {time_end-time_start} ")
-    time_report_dict['modelo_seguimientos'] = time_end-time_start
-    xtest_df['FechaActualizacionDelitosSeguimiento'] = datetime.now()
+    if predict_delitos_seguimiento:
+        predict_robbery_class(dataframe=xtest_df,
+                              path_model=PATH_MODEL_SEGUIMIENTOS,
+                              label_relato=LABEL_RELATO,
+                              label_name=DELITOS_SEGUIMIENTOS_COLUMNS_NAMES_DICT.get('label_name'),
+                              label_score=DELITOS_SEGUIMIENTOS_COLUMNS_NAMES_DICT.get('label_score'),
+                              words_qty_label='d_CANTIDAD_PALABRAS',
+                              status='ESTADO_ML',
+                              fecha_label=DELITOS_SEGUIMIENTOS_COLUMNS_NAMES_DICT['label_fecha'],
+                              model_name='delitos_seguimiento')
     # salida del programa        
     # print(f"Predicciones Terminadas: {time_report_dict['modelo_validados']+time_report_dict['modelo_seguimientos']}")
     # print(time_report_dict.items())
     if csv:
-        to_save = os.path.join(os.getcwd(), 'reports', 'DaaS_RobosML_predicted.csv')
+        output_file_name = 'DaaS_RobosML_predicted-'+datetime.now().strftime('%Y-%m-%d')+'.csv'
+        to_save = os.path.join(save_path, output_file_name )
         print(f"Salvando resultados a csv {to_save}")
         xtest_df.to_csv(to_save, index=False)
     if sql:
@@ -168,10 +194,19 @@ if __name__=="__main__":
     
     parser.add_argument('--tablein', default='robosML', type=str, help='Nombre de la tabla sql de la que se debe leer los datos')
     parser.add_argument('--sample', action="store_true", help="Si se declara, consulta los 1.000 registros de la base para pruebas")
-    # parser.add_argument('--seguimiento', action="store_true", help="Si se declara, realiza la predicción de delitos seguimiento")
-    parser.add_argument('--validados', action="store_true", help="Si se declara, realiza la predicción de etiquetas de delitos validados")
-    parser.add_argument('--csv', action="store_true", help="Si se declara, se guarda los resultados obtenidos en archivo csv")
-    parser.add_argument('--sql', action="store_true", help="Si se declara, se guarda los resultados obtenidos tabla de SQL temporal. Por defecto guarda en 192.168.152.197")
+    parser.add_argument('--validados', action="store_true", default=True, help="Si se declara, realiza la predicción de etiquetas de delitos validados")
+    parser.add_argument('--seguimiento', action="store_true", default=True, help="Si se declara, realiza la predicción de etiquetas de delitos seguimiento")
+    parser.add_argument('--load_data_comision', action="store_true", help="Si se declara, realiza la carga de los datos de delitos seguimiento de la comision para 2014 a 2022. Delitos Validados se sugiere tomar del modelo")
+    parser.add_argument('--save2sql', action="store_true", help="Si se declara, se guarda los resultados obtenidos en tabla de SQL. Por defecto guarda en [DATABASE].[TABLE]")
+    parser.add_argument('--save2csv', action="store_true", help="Si se declara, se guarda los resultados obtenidos en archivo CSV. La ubicacion se declara en save_path_files")
+    parser.add_argument('--save_path', default='data/processed/', help="Especifica la ubicacion en que se guardaran los resultados obtenidos")
     parser.add_argument('--update', action="store_true", help="Si se declara, realiza la actualizacion de la base de datos original leida")
     args = parser.parse_args()
-    main(predict_delitos_validados=args.validados, csv=args.csv, sample=args.sample, table_in=args.tablein, sql=args.sql, update=args.update)
+    main(predict_delitos_validados=args.validados, 
+         predict_delitos_seguimiento=args.seguimiento,
+         csv=args.save2csv,
+         save_path=args.save_path, 
+         sample=args.sample, 
+         table_in=args.tablein, 
+         sql=args.save2sql, 
+         update=args.update)
