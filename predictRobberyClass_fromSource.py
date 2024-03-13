@@ -237,7 +237,8 @@ def merging_results(xtest_actual, xtest_anterior, label_ndd, new_ndds_list, colu
     remove_columns(df=xtest_actual, columns2remove_list=columns2remove)    
     # Setting FechaActualizacion in xtest_actual=xtest_df
     xtest_actual["FechaActualizacion"] = np.nan
-    xtest_actual["FechaActualizacion"][xtest_actual[label_ndd].isin(new_ndds_list)] = datetime.now()
+    xtest_actual.loc[xtest_actual[label_ndd].isin(new_ndds_list), "FechaActualizacion"] = datetime.now()
+    
     xtest_merged = pd.merge(xtest_actual, 
                             xtest_anterior[columnas_prediccion[:-1]],
                             on="NDD",
