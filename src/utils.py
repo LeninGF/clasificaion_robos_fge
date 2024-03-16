@@ -89,7 +89,7 @@ def predictLabelAndScoreDaaS(relato, classifier, status, actual_label, actual_sc
             score = y_hat_dict['score']
             status = 1
         else:
-            label = "N/A"
+            label = "OTROS"
             score = 0
             status = status
     else:
