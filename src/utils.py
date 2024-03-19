@@ -161,7 +161,8 @@ def predict_text_class_DaaS_tqdm(dataf, model, label_relato= 'RELATO',label_name
         label_name (str, optional): name of the new column to be returned. Defaults to 'd_DELITOS_SEGUIMIENTO'.
         words_qty_label (str, optional): name of the column with the number of words. Defaults to 'd_CANTIDAD_PALABRAS'.
         threshold_words_qty (int, optional): constant value to consider valid text to be classified. Defaults to 50.
-        status str: name of the column that stores the state of the ndd. If 0, the ndd has not been predicted or is a new case, if 1, the ndd has been predicted previously and can be skipped
+        status str: name of the column that stores the state of the ndd. If 0, the ndd has not been predicted or is a new case, if 1, the ndd has been predicted 
+        by modelo_seguimientos and modelo_validados previously. When 2 it was preddicted by modelo_validados. When 3 it was predicted by modelo_seguimientos. When different from 0 it can be skipped
     """
     if label_score is None:
         label_score = label_name+'_SCORE'
@@ -422,3 +423,16 @@ def seconds_to_readable_time(seconds):
         time_format += f"{seconds} second{'s' if seconds != 1 else ''}"
 
     return time_format.strip()  # Remove trailing spaces
+
+
+def print_robbery_kinds_qty(df, predicted_label):
+    """_print_robbery_kinds_
+    It allows to print summarized count of the predicted
+    label and the number of empty values (i.e. NaN)
+    Args:
+        df (dataframe): dataframe with results of category prediction
+        predicted_label (str): name of the column where categoriers were predicted 
+    """
+    print(f"Cantidad de categorias de {predicted_label}:\n{df[predicted_label].value_counts()}")
+    print(f"Cantidad de categorias vacias {predicted_label}:{df[predicted_label].isna().sum()}")
+    print(f"Total de registros: {df[predicted_label].value_counts().sum()}")
