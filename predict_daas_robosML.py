@@ -13,11 +13,12 @@ from src.utils import extraer_relato, conectar_sql, save_df_in_sql
 from src.utils import format_crimestory
 from src.utils import words_qty, predict_text_class_DaaS_tqdm
 from src.utils import seconds_to_readable_time, print_robbery_kinds_qty
+from src.utils import create_delitos_seguimiento_unified, preprocessing_delitos_seguimiento_comision, fix_estadoml
 from datasets import Dataset
 from src.utils import load_text_classification_model
 from datetime import datetime
 from argparse import ArgumentParser
-
+from tqdm import tqdm
 
 PATH_MODEL_SEGUIMIENTOS = '/home/falconiel/ML_Models/robbery_tf20221113'
 PATH_MODEL_VALIDADOS = '/home/falconiel/ML_Models/robbery_validados_tf20231211'
@@ -37,6 +38,12 @@ DELITOS_VALIDADOS_COLUMNS_NAMES_DICT = {'label_name':'delitos_validados_predicte
                                         'label_score':'delitos_validados_predicted_score',
                                         'label_fecha':'FechaActualizacionDelitosValidados'
                                         }
+
+COLUMNAS_COMISION_DICT = {'label_seguimiento':"delitos_seguimiento_comision",
+                          'label_validados': "delitos_validados_comision",
+                          'label_fecha_corte': "FechaCorteComision"}
+
+COLUMN_DELITOS_SEGUIMIENTO_UNIFIED_LABEL = 'delitos_seguimiento_unified'
 
 
 def predict_robbery_class_daas(dataframe, 
@@ -80,7 +87,9 @@ def read_sql_comision_estadistica(database_table):
                     robos.NDD,
                     robos.Tipo_Delito_PJ as 'Tipo_Delito_PJ_comision',
                     robos.delitos_seguimiento as 'delitos_seguimiento_comision',
-                    robos.delitos_validados as 'delitos_validados_comision'
+                    robos.delitos_validados as 'delitos_validados_comision',
+                    robos.`Fecha_Incidente` as 'FechaIncidenteComision', 
+                    robos.`Fecha_Registro` as 'FechaRegistroComision'
                     FROM {database}.{table} robos
                     WHERE robos.Tipo_Delito_PJ = 'ROBO';
                     """)
@@ -105,27 +114,10 @@ def read_daas_robosML(sample, database_in, table_in):
     # afectar la estructura de la tabla original.
     daas_df['CANTIDAD_PALABRAS'] = daas_df['d_CANTIDAD_PALABRAS']
     print("Columnas del dataset {}".format(daas_df.columns))
-    print(f"Características de la Canidad de palabras\n:{daas_df.d_CANTIDAD_PALABRAS.describe()}")
+    print(f"Características de la Cantidad de palabras\n:{daas_df.d_CANTIDAD_PALABRAS.describe()}")
     # hacer un drop de d_CANTIDAD_PALABRAS????
     return daas_df, 'RELATO'
 
-
-def fix_estadoml(estadoml, estado_seguimiento, estado_validados):
-    """
-    Fixes ESTADO_ML output. if in a row_i, estado_seguimiento
-    and estado_validados both have value of 1, then we return 1
-    if only estado seguimiento or estado_validado was performed, 
-    3 and 2 are returned, respectively. In any other case, the original
-    value of ESTADO_ML is returned
-    """
-    if estado_seguimiento==1 and estado_validados==1:
-        return 1
-    elif estado_validados ==1:
-        return 2
-    elif estado_seguimiento==1:
-        return 3
-    else:
-        return estadoml
 
 
 def main(predict_delitos_validados, 
@@ -184,15 +176,36 @@ def main(predict_delitos_validados,
                                                                   axis=1)
     # loading data from comision
     if load_data_comision:
+        print(f"Leyendo datos de la Comisión Interinstitucional desde: {bbdd_comision}")
         comission_df = read_sql_comision_estadistica(database_table=bbdd_comision)
-        print(f"Comision de Estadística tiene {comission_df.shape[0]} registros de {comission_df.columns}")
+        print(f"Comision de Estadística tiene {comission_df.shape[0]} registros")
+        list_ndds_in_comision = list(set(xtest_df.NDD).intersection(comission_df.NDD))
+        print(f"Existen {len(list_ndds_in_comision)} Ndds de RobosML en Comision")
         # merging dataframes
-        print(f"Caracteristicas del dataframe obtenido:\n{xtest_df.info()}")
-        output_df = pd.merge(xtest_df, comission_df, on="NDD", how='left', suffixes=['','_comision'])
-        print(output_df.shape, xtest_df.shape, comission_df.shape)
-        print(f"Caracteristicas del dataframe obtenido:\n{output_df.info()}")
+        # print(f"Caracteristicas del dataframe obtenido:\n{xtest_df.info()}")
+        preprocessing_delitos_seguimiento_comision(dataf=comission_df, column=COLUMNAS_COMISION_DICT['label_seguimiento'])
+        # print(set(comission_df[COLUMNAS_COMISION_DICT['label_seguimiento']]))
+        output_df = pd.merge(xtest_df, comission_df, on="NDD", how='left', suffixes=['','_1']) # if done this way update and drop additional added columns
+        # print(output_df.shape, xtest_df.shape, comission_df.shape)
+        # output_df = xtest_df.set_index('NDD').combine_first(comission_df.set_index('NDD')).reset_index() # this alternative creates more samples than needed
+        output_df[COLUMNAS_COMISION_DICT['label_seguimiento']] = output_df[COLUMNAS_COMISION_DICT['label_seguimiento']+'_1']
+        output_df[COLUMNAS_COMISION_DICT['label_validados']] = output_df[COLUMNAS_COMISION_DICT['label_validados']+'_1']
+        output_df.drop(columns=[COLUMNAS_COMISION_DICT['label_seguimiento']+'_1', COLUMNAS_COMISION_DICT['label_validados']+'_1'], inplace=True)
+        # print(output_df.shape, xtest_df.shape, comission_df.shape)
+        # print(f"Caracteristicas del dataframe obtenido:\n{output_df.info()}")
+        # create unified column delitos_seguimiento_unified
+        create_delitos_seguimiento_unified(dataf=output_df,
+                                           predicted_delitos_col_label=DELITOS_SEGUIMIENTOS_COLUMNS_NAMES_DICT['label_name'],
+                                           comision_col_label=COLUMNAS_COMISION_DICT['label_seguimiento'],
+                                           list_ndds_in_commision=list_ndds_in_comision,
+                                           column_label=COLUMN_DELITOS_SEGUIMIENTO_UNIFIED_LABEL)
+
     else:
         output_df = xtest_df
+    print(f"Caracteristicas del dataframe obtenido:\n{xtest_df.info()}")
+    # print_robbery_kinds_qty(output_df, predicted_label=DELITOS_SEGUIMIENTOS_COLUMNS_NAMES_DICT['label_name'])
+    # print_robbery_kinds_qty(output_df, DELITOS_VALIDADOS_COLUMNS_NAMES_DICT['label_name'])
+    
     # salida del programa        
     # print(f"Predicciones Terminadas: {time_report_dict['modelo_validados']+time_report_dict['modelo_seguimientos']}")
     # print(time_report_dict.items())
@@ -216,6 +229,10 @@ def main(predict_delitos_validados,
                        del1.{DELITOS_VALIDADOS_COLUMNS_NAMES_DICT['label_name']} = del2.{DELITOS_VALIDADOS_COLUMNS_NAMES_DICT['label_name']},
                        del1.{DELITOS_VALIDADOS_COLUMNS_NAMES_DICT['label_score']} = del2.{DELITOS_VALIDADOS_COLUMNS_NAMES_DICT['label_score']},
                        del1.{DELITOS_VALIDADOS_COLUMNS_NAMES_DICT['label_fecha']} = del2.{DELITOS_VALIDADOS_COLUMNS_NAMES_DICT['label_fecha']},
+                       del1.{COLUMNAS_COMISION_DICT.get('label_seguimiento')} = del2.{COLUMNAS_COMISION_DICT.get('label_seguimiento')}, 
+                       del1.{COLUMNAS_COMISION_DICT.get('label_validados')} = del2.{COLUMNAS_COMISION_DICT.get('label_validados')}, 
+                       del1.{COLUMNAS_COMISION_DICT.get('label_fecha_corte')} = del2.{COLUMNAS_COMISION_DICT.get('label_fecha_corte')},
+                       del1.{COLUMN_DELITOS_SEGUIMIENTO_UNIFIED_LABEL} = del2.{COLUMN_DELITOS_SEGUIMIENTO_UNIFIED_LABEL},
                        del1.ESTADO_ML = del2.ESTADO_ML;"""
                        
 
@@ -242,7 +259,7 @@ if __name__=="__main__":
     parser.add_argument('--seguimiento', action="store_true", help="Si se declara, realiza la predicción de etiquetas de delitos seguimiento")
     parser.add_argument('--load_data_comision', action="store_true", help="Si se declara, realiza la carga de los datos de delitos seguimiento de la comision para 2014 a 2022. Delitos Validados se sugiere tomar del modelo")
     parser.add_argument('--bbdd_comision', default='reportes.robos_2014_08012023', help="Especifica la base y \
-    la tabla donde reposan los datos de la comisión para los años 2014 - 2022. El formato es BASE.TABLA")
+    la tabla donde reposan los datos de la comisión para los años 2014 - 2022. El valor por defecto es reportes.robos_2014_08012023. El formato es BASE.TABLA")
     parser.add_argument('--save2sql', action="store_true", help="Si se declara, se guarda los resultados obtenidos en tabla de SQL. Por defecto guarda en [DATABASE].[TABLE]")
     parser.add_argument('--save2csv', action="store_true", help="Si se declara, se guarda los resultados obtenidos en archivo CSV. La ubicacion se declara en save_path_files")
     parser.add_argument('--save_path', default='data/processed/', help="Especifica la ubicacion en que se guardaran los resultados obtenidos")
