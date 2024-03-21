@@ -89,7 +89,7 @@ def predictLabelAndScoreDaaS(relato, classifier, status, actual_label, actual_sc
             score = y_hat_dict['score']
             status = 1
         else:
-            label = "N/A"
+            label = "OTROS ROBOS"
             score = 0
             status = status
     else:
@@ -161,12 +161,15 @@ def predict_text_class_DaaS_tqdm(dataf, model, label_relato= 'RELATO',label_name
         label_name (str, optional): name of the new column to be returned. Defaults to 'd_DELITOS_SEGUIMIENTO'.
         words_qty_label (str, optional): name of the column with the number of words. Defaults to 'd_CANTIDAD_PALABRAS'.
         threshold_words_qty (int, optional): constant value to consider valid text to be classified. Defaults to 50.
-        status str: name of the column that stores the state of the ndd. If 0, the ndd has not been predicted or is a new case, if 1, the ndd has been predicted previously and can be skipped
+        status str: name of the column that stores the state of the ndd. If 0, the ndd has not been predicted or is a new case, if 1, the ndd has been predicted 
+        by modelo_seguimientos and modelo_validados previously. When 2 it was preddicted by modelo_validados. When 3 it was predicted by modelo_seguimientos. When different from 0 it can be skipped
     """
+    if label_score is None:
+        label_score = label_name+'_SCORE'
     tqdm.pandas()
     # HAY UN PROBLEMA EN EL APPLY, SE REQUIERE QUE ME PONGA N/A SI ERA CANTIDAD PALABRAS MENOS DE 50 Y ESTADO 0, PERO SI EL ESTADO ML ES 1, DEBE QUEDAR EL MISMO VALOR
     # dataf[[label_name, label_name+'_SCORE', status]] = dataf.progress_apply(lambda x: predictLabelAndScoreDaaS(relato=x[label_relato], classifier=model) if x[words_qty_label] >=threshold_words_qty and x[status]==0 else ("N/A", 0, 0), axis=1, result_type='expand')
-    dataf[[label_name, label_name+'_SCORE', status]] = dataf.progress_apply(lambda x: predictLabelAndScoreDaaS(relato=x[label_relato], classifier=model, actual_label=x[label_name], actual_score=x[label_score], words_qty=x[words_qty_label], threshold_words_qty=threshold_words_qty, status=x[status]), axis=1, result_type='expand')
+    dataf[[label_name, label_score, status]] = dataf.progress_apply(lambda x: predictLabelAndScoreDaaS(relato=x[label_relato], classifier=model, actual_label=x[label_name], actual_score=x[label_score], words_qty=x[words_qty_label], threshold_words_qty=threshold_words_qty, status=x[status]), axis=1, result_type='expand')
 
 
 def predict_text_class_only_new_tqdm(dataf, 
@@ -397,3 +400,147 @@ def train_valid_test_sizer(dataframe_shape, proportion = (0.7,0.2,0.1)):
     TEST_SIZE = rows*test_proportion
     print(f"Recomended sizes are: TRAIN: {TRAIN_SIZE}, VALID: {VALID_SIZE}, TEST: {TEST_SIZE}")
     return TRAIN_SIZE, VALID_SIZE, TEST_SIZE
+
+
+def seconds_to_readable_time(seconds):
+    """
+    Converts seconds to a human-readable time format (hours, minutes, seconds).
+    Args:
+        seconds (int): The input duration in seconds.
+    Returns:
+        str: A formatted string representing the time.
+    """
+    minutes, seconds = divmod(int(seconds), 60)
+    hours, minutes = divmod(minutes, 60)
+
+    # Construct the readable time format
+    time_format = ""
+    if hours > 0:
+        time_format += f"{hours} hour{'s' if hours != 1 else ''} "
+    if minutes > 0:
+        time_format += f"{minutes} minute{'s' if minutes != 1 else ''} "
+    if seconds > 0:
+        time_format += f"{seconds} second{'s' if seconds != 1 else ''}"
+
+    return time_format.strip()  # Remove trailing spaces
+
+
+def print_robbery_kinds_qty(df, predicted_label):
+    """_print_robbery_kinds_
+    It allows to print summarized count of the predicted
+    label and the number of empty values (i.e. NaN)
+    Args:
+        df (dataframe): dataframe with results of category prediction
+        predicted_label (str): name of the column where categoriers were predicted 
+    """
+    print(f"Cantidad de categorias de {predicted_label}:\n{df[predicted_label].value_counts()}")
+    print(f"Cantidad de categorias vacias {predicted_label}:{df[predicted_label].isna().sum()}")
+    print(f"Total de registros: {df[predicted_label].value_counts().sum()}")
+
+
+def function_unified_delitos_seguimiento(ndd, predicted_value, labeled_value, ndds_in_commision_list):
+    """create_unified_delitos_seguimiento
+    This creates a unified colum delitos seguimiento named delitos_seguimiento_unified
+    that keeps the value assigend by comision when ndd is in commision 
+    if the ndd is not in comision or the value assigned by comision is SIN INFORMACION
+    the value predicted by the model is taken
+    Args:
+        ndd (_str_): column label name where NDD are contained
+        predicted_value (_str_): column label name where the model prediction is contained
+        labeled_value (_str_): corresponds to the name of the column where we have the values assigned
+                                by the comision
+        ndds_in_commision_list (_list_): list that contains the NDD numbers worked by the comision
+
+    Returns:
+        column delitos_seguimiento_unified: column with data
+    """
+    # conditions:
+    # if ndd in comision change if value in commision not empty or SIN INFORMACION
+    # if value in comision is SIN INFORMACION change for predicted value
+    if ndd in ndds_in_commision_list:
+        if labeled_value != "SIN INFORMACION":
+            return labeled_value, 'COMISION'
+        else:
+            return predicted_value, 'MODEL'
+    else:
+        return predicted_value, 'MODEL'
+    
+def create_delitos_seguimiento_unified(dataf, list_ndds_in_commision, ndd_col_label="NDD", predicted_delitos_col_label="delitos_seguimiento_predicted", comision_col_label="delitos_seguimiento_comision", column_label='delitos_seguimiento_unified'):
+    tqdm.pandas()
+    dataf[column_label], dataf[column_label+'_origin'] = zip(*dataf.progress_apply(lambda x: function_unified_delitos_seguimiento(ndd=x[ndd_col_label],
+                                                                                                                                  predicted_value=x[predicted_delitos_col_label], 
+                                                                                                                                  labeled_value=x[comision_col_label],
+                                                                                                                                  ndds_in_commision_list=list_ndds_in_commision), axis=1))
+    
+def preprocessing_delitos_seguimiento_comision(dataf, column):
+    """__preprocessing_delitos_seguimiento_comision__
+    To homogenize the categories found in delitos seguimiento from comision
+    by removing any vowel that has accent
+    Args:
+        dataf (_dataframe_): dataframe with data
+        column (_str_): column that contains categories with vowels accented to be changed
+    """
+    dataf[column] = dataf[column].str.strip()
+    dataf[column] = dataf[column].str.upper()
+    dataf[column] = dataf[column].str.replace('Á', 'A')
+    dataf[column] = dataf[column].str.replace('É', 'E')
+    dataf[column] = dataf[column].str.replace('Í', 'I')
+    dataf[column] = dataf[column].str.replace('Ó', 'O')
+    dataf[column] = dataf[column].str.replace('Ú', 'U')
+
+
+def fix_estadoml(estadoml, estado_seguimiento, estado_validados):
+    """
+    Fixes ESTADO_ML output. if in a row_i, estado_seguimiento
+    and estado_validados both have value of 1, then we return 1
+    if only estado seguimiento or estado_validado was performed, 
+    3 and 2 are returned, respectively. In any other case, the original
+    value of ESTADO_ML is returned
+    """
+    if estado_seguimiento==1 and estado_validados==1:
+        return 1
+    elif estado_validados ==1:
+        return 2
+    elif estado_seguimiento==1:
+        return 3
+    else:
+        return estadoml
+
+
+def read_sql_comision_estadistica(database_table):
+    database, table = database_table.split('.')
+    print(f"Leyendo datos desde {database}.{table}")
+    query = text(f"""SELECT 
+                    robos.NDD,
+                    robos.Tipo_Delito_PJ as 'Tipo_Delito_PJ_comision',
+                    robos.delitos_seguimiento as 'delitos_seguimiento_comision',
+                    robos.delitos_validados as 'delitos_validados_comision',
+                    robos.`Fecha_Incidente` as 'FechaIncidenteComision', 
+                    robos.`Fecha_Registro` as 'FechaRegistroComision'
+                    FROM {database}.{table} robos
+                    WHERE robos.Tipo_Delito_PJ = 'ROBO';
+                    """)
+    return pd.read_sql(query, conectar_sql())
+
+
+def read_daas_robosML(sample, database_in, table_in):
+    # query = "select * from `DaaS`.`robosML`"
+    query = f"select * from `{database_in}`.`{table_in}`"
+    if sample:
+        query += " limit 1000"
+    query += ";"
+    query = text(query)
+    daas_df = pd.read_sql(query, conectar_sql())
+    print(f"Total de registros: {daas_df.shape}")
+    # dando formato al relato de la noticia del delito
+    format_crimestory(relato_label='RELATO', dataf=daas_df)
+    # genera la cuenta de cantidad de palabras, en columna d_CANTIDAD_PALABRAS
+    words_qty(dataf=daas_df, relato_label='RELATO')
+    # puede ser adecuado omitir esto luego pero podemos sobrescribir la columna \
+    # cantidad de palabras original para luego hacer un drop de esa columna y no
+    # afectar la estructura de la tabla original.
+    daas_df['CANTIDAD_PALABRAS'] = daas_df['d_CANTIDAD_PALABRAS']
+    print("Columnas del dataset {}".format(daas_df.columns))
+    print(f"Características de la Cantidad de palabras\n:{daas_df.d_CANTIDAD_PALABRAS.describe()}")
+    # hacer un drop de d_CANTIDAD_PALABRAS????
+    return daas_df, 'RELATO'
