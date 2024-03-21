@@ -14,6 +14,7 @@ from src.utils import format_crimestory
 from src.utils import words_qty, predict_text_class_DaaS_tqdm
 from src.utils import seconds_to_readable_time, print_robbery_kinds_qty
 from src.utils import create_delitos_seguimiento_unified, preprocessing_delitos_seguimiento_comision, fix_estadoml
+from src.utils import read_daas_robosML, read_sql_comision_estadistica
 from datasets import Dataset
 from src.utils import load_text_classification_model
 from datetime import datetime
@@ -80,43 +81,9 @@ def predict_robbery_class_daas(dataframe,
     print(f"Predicción {model_name} concluída {datetime.now()}\nDuración: {readable_time}")
 
 
-def read_sql_comision_estadistica(database_table):
-    database, table = database_table.split('.')
-    print(f"Leyendo datos desde {database}.{table}")
-    query = text(f"""SELECT 
-                    robos.NDD,
-                    robos.Tipo_Delito_PJ as 'Tipo_Delito_PJ_comision',
-                    robos.delitos_seguimiento as 'delitos_seguimiento_comision',
-                    robos.delitos_validados as 'delitos_validados_comision',
-                    robos.`Fecha_Incidente` as 'FechaIncidenteComision', 
-                    robos.`Fecha_Registro` as 'FechaRegistroComision'
-                    FROM {database}.{table} robos
-                    WHERE robos.Tipo_Delito_PJ = 'ROBO';
-                    """)
-    return pd.read_sql(query, conectar_sql())
+
     
     
-def read_daas_robosML(sample, database_in, table_in):
-    # query = "select * from `DaaS`.`robosML`"
-    query = f"select * from `{database_in}`.`{table_in}`"
-    if sample:
-        query += " limit 1000"
-    query += ";"
-    query = text(query)
-    daas_df = pd.read_sql(query, conectar_sql())
-    print(f"Total de registros: {daas_df.shape}")
-    # dando formato al relato de la noticia del delito
-    format_crimestory(relato_label='RELATO', dataf=daas_df)
-    # genera la cuenta de cantidad de palabras, en columna d_CANTIDAD_PALABRAS
-    words_qty(dataf=daas_df, relato_label='RELATO')
-    # puede ser adecuado omitir esto luego pero podemos sobrescribir la columna \
-    # cantidad de palabras original para luego hacer un drop de esa columna y no
-    # afectar la estructura de la tabla original.
-    daas_df['CANTIDAD_PALABRAS'] = daas_df['d_CANTIDAD_PALABRAS']
-    print("Columnas del dataset {}".format(daas_df.columns))
-    print(f"Características de la Cantidad de palabras\n:{daas_df.d_CANTIDAD_PALABRAS.describe()}")
-    # hacer un drop de d_CANTIDAD_PALABRAS????
-    return daas_df, 'RELATO'
 
 
 
