@@ -89,7 +89,7 @@ def predictLabelAndScoreDaaS(relato, classifier, status, actual_label, actual_sc
             score = y_hat_dict['score']
             status = 1
         else:
-            label = "N/A"
+            label = "OTROS ROBOS"
             score = 0
             status = status
     else:
@@ -436,3 +436,73 @@ def print_robbery_kinds_qty(df, predicted_label):
     print(f"Cantidad de categorias de {predicted_label}:\n{df[predicted_label].value_counts()}")
     print(f"Cantidad de categorias vacias {predicted_label}:{df[predicted_label].isna().sum()}")
     print(f"Total de registros: {df[predicted_label].value_counts().sum()}")
+
+
+def function_unified_delitos_seguimiento(ndd, predicted_value, labeled_value, ndds_in_commision_list):
+    """create_unified_delitos_seguimiento
+    This creates a unified colum delitos seguimiento named delitos_seguimiento_unified
+    that keeps the value assigend by comision when ndd is in commision 
+    if the ndd is not in comision or the value assigned by comision is SIN INFORMACION
+    the value predicted by the model is taken
+    Args:
+        ndd (_str_): column label name where NDD are contained
+        predicted_value (_str_): column label name where the model prediction is contained
+        labeled_value (_str_): corresponds to the name of the column where we have the values assigned
+                                by the comision
+        ndds_in_commision_list (_list_): list that contains the NDD numbers worked by the comision
+
+    Returns:
+        column delitos_seguimiento_unified: column with data
+    """
+    # conditions:
+    # if ndd in comision change if value in commision not empty or SIN INFORMACION
+    # if value in comision is SIN INFORMACION change for predicted value
+    if ndd in ndds_in_commision_list:
+        if labeled_value != "SIN INFORMACION":
+            return labeled_value, 'COMISION'
+        else:
+            return predicted_value, 'MODEL'
+    else:
+        return predicted_value, 'MODEL'
+    
+def create_delitos_seguimiento_unified(dataf, list_ndds_in_commision, ndd_col_label="NDD", predicted_delitos_col_label="delitos_seguimiento_predicted", comision_col_label="delitos_seguimiento_comision", column_label='delitos_seguimiento_unified'):
+    tqdm.pandas()
+    dataf[column_label], dataf[column_label+'_origin'] = zip(*dataf.progress_apply(lambda x: function_unified_delitos_seguimiento(ndd=x[ndd_col_label],
+                                                                                                                                  predicted_value=x[predicted_delitos_col_label], 
+                                                                                                                                  labeled_value=x[comision_col_label],
+                                                                                                                                  ndds_in_commision_list=list_ndds_in_commision), axis=1))
+    
+def preprocessing_delitos_seguimiento_comision(dataf, column):
+    """__preprocessing_delitos_seguimiento_comision__
+    To homogenize the categories found in delitos seguimiento from comision
+    by removing any vowel that has accent
+    Args:
+        dataf (_dataframe_): dataframe with data
+        column (_str_): column that contains categories with vowels accented to be changed
+    """
+    dataf[column] = dataf[column].str.strip()
+    dataf[column] = dataf[column].str.upper()
+    dataf[column] = dataf[column].str.replace('Á', 'A')
+    dataf[column] = dataf[column].str.replace('É', 'E')
+    dataf[column] = dataf[column].str.replace('Í', 'I')
+    dataf[column] = dataf[column].str.replace('Ó', 'O')
+    dataf[column] = dataf[column].str.replace('Ú', 'U')
+
+
+def fix_estadoml(estadoml, estado_seguimiento, estado_validados):
+    """
+    Fixes ESTADO_ML output. if in a row_i, estado_seguimiento
+    and estado_validados both have value of 1, then we return 1
+    if only estado seguimiento or estado_validado was performed, 
+    3 and 2 are returned, respectively. In any other case, the original
+    value of ESTADO_ML is returned
+    """
+    if estado_seguimiento==1 and estado_validados==1:
+        return 1
+    elif estado_validados ==1:
+        return 2
+    elif estado_seguimiento==1:
+        return 3
+    else:
+        return estadoml
+
