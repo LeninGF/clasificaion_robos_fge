@@ -106,6 +106,9 @@ def main(predict_delitos_validados,
     time_report_dict = {}
     xtest_df['ESTADO_ML_SEGUIMIENTO'] = xtest_df['ESTADO_ML']
     xtest_df['ESTADO_ML_VALIDADOS'] = xtest_df['ESTADO_ML']
+    xtest_df['ESTADO_ML_SEGUIMIENTO_UNIFIED_COMISION'] = xtest_df['ESTADO_ML']
+    xtest_df['ESTADO_ML_SEGUIMIENTO_UNIFIED_SIAF'] = xtest_df['ESTADO_ML']
+    xtest_df['ESTADO_ML_VALIDADOS_UNIFIED_SIAF'] = xtest_df['ESTADO_ML']
 
     if predict_delitos_validados:
         predict_robbery_class_daas(dataframe=xtest_df,
@@ -165,10 +168,13 @@ def main(predict_delitos_validados,
                                            predicted_delitos_col_label=DELITOS_SEGUIMIENTOS_COLUMNS_NAMES_DICT['label_name'],
                                            comision_col_label=COLUMNAS_COMISION_DICT['label_seguimiento'],
                                            list_ndds_in_commision=list_ndds_in_comision,
+                                           estado_label='ESTADO_ML_SEGUIMIENTO_UNIFIED_SIAF',
                                            column_label=COLUMN_DELITOS_SEGUIMIENTO_UNIFIED_LABEL)
 
     else:
         output_df = xtest_df
+
+    
     print(f"Caracteristicas del dataframe obtenido:\n{xtest_df.info()}")
     # print_robbery_kinds_qty(output_df, predicted_label=DELITOS_SEGUIMIENTOS_COLUMNS_NAMES_DICT['label_name'])
     # print_robbery_kinds_qty(output_df, DELITOS_VALIDADOS_COLUMNS_NAMES_DICT['label_name'])
@@ -182,8 +188,8 @@ def main(predict_delitos_validados,
         print(f"Salvando resultados a csv {to_save}")
         output_df.to_csv(to_save, index=False)
     if sql:
-        # table_out = TABLE_IN+'_predicted_tmp'+'_'+datetime.now().strftime('%Y_%m_%d')
-        table_out = TABLE_IN+'_predicted_tmp'
+        table_out = TABLE_IN+'_predicted_tmp'+'_'+datetime.now().strftime('%Y_%m_%d')
+        # table_out = TABLE_IN+'_predicted_tmp'
         print(f"Guardando en base de datos DaaS en tabla sql {table_out}")
         save_df_in_sql(name_table=table_out, dataf=output_df, database='DaaS')
         # implementar la actualizacion de la tabla
