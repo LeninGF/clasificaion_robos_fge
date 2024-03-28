@@ -438,7 +438,7 @@ def print_robbery_kinds_qty(df, predicted_label):
     print(f"Total de registros: {df[predicted_label].value_counts().sum()}")
 
 
-def function_unified_delitos_seguimiento(ndd, predicted_value, labeled_value, ndds_in_commision_list):
+def function_unified_delitos_seguimiento(ndd, predicted_value, labeled_value, ndds_in_commision_list, estado):
     """create_unified_delitos_seguimiento
     This creates a unified colum delitos seguimiento named delitos_seguimiento_unified
     that keeps the value assigend by comision when ndd is in commision 
@@ -450,6 +450,7 @@ def function_unified_delitos_seguimiento(ndd, predicted_value, labeled_value, nd
         labeled_value (_str_): corresponds to the name of the column where we have the values assigned
                                 by the comision
         ndds_in_commision_list (_list_): list that contains the NDD numbers worked by the comision
+        estado (_int_): if 0 we have to look for the ndd in comision and bring its value, if 1 we skip
 
     Returns:
         column delitos_seguimiento_unified: column with data
@@ -457,20 +458,22 @@ def function_unified_delitos_seguimiento(ndd, predicted_value, labeled_value, nd
     # conditions:
     # if ndd in comision change if value in commision not empty or SIN INFORMACION
     # if value in comision is SIN INFORMACION change for predicted value
-    if ndd in ndds_in_commision_list:
+    if (ndd in ndds_in_commision_list) and (estado==0):
         if labeled_value != "SIN INFORMACION":
             return labeled_value, 'COMISION'
         else:
             return predicted_value, 'MODEL'
     else:
         return predicted_value, 'MODEL'
+
     
-def create_delitos_seguimiento_unified(dataf, list_ndds_in_commision, ndd_col_label="NDD", predicted_delitos_col_label="delitos_seguimiento_predicted", comision_col_label="delitos_seguimiento_comision", column_label='delitos_seguimiento_unified'):
+def create_delitos_seguimiento_unified(dataf, list_ndds_in_commision, ndd_col_label="NDD", predicted_delitos_col_label="delitos_seguimiento_predicted", comision_col_label="delitos_seguimiento_comision", column_label='delitos_seguimiento_unified', estado_label='ESTADO_ML_SEGUIMIENTO_UNIFIED_COMISION'):
     tqdm.pandas()
     dataf[column_label], dataf[column_label+'_origin'] = zip(*dataf.progress_apply(lambda x: function_unified_delitos_seguimiento(ndd=x[ndd_col_label],
                                                                                                                                   predicted_value=x[predicted_delitos_col_label], 
                                                                                                                                   labeled_value=x[comision_col_label],
-                                                                                                                                  ndds_in_commision_list=list_ndds_in_commision), axis=1))
+                                                                                                                                  ndds_in_commision_list=list_ndds_in_commision,
+                                                                                                                                  estado=x[estado_label]), axis=1))
     
 def preprocessing_delitos_seguimiento_comision(dataf, column):
     """__preprocessing_delitos_seguimiento_comision__
