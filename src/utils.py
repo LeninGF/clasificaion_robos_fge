@@ -6,6 +6,88 @@ from transformers import pipeline
 from transformers import AutoTokenizer
 from tqdm import tqdm
 
+siaf_seguimiento_dict = {
+    'NO_APLICA': 'REVIEW_LABEL',
+    'ROBO DOMICILIOS': 'ROBO A DOMICILIO',
+    'ROBO DE ACCESORIOS DE VEHÍCULOS': 'ROBO DE BIENES, ACCESORIOS Y AUTOPARTES DE VEHICULOS',
+    'ROBO DE VEHÍCULOS': 'ROBO DE CARROS',
+    'ROBO DE MOTOCICLETAS': 'ROBO DE MOTOS',
+    'ROBO EN LOCALES COMERCIALES': 'ROBO A UNIDADES ECONOMICAS',
+    'ROBO A BIENES DE UNIDADES ECONOMICAS': 'ROBO A UNIDADES ECONOMICAS',
+    'ROBO A BIENES DE INSTITUCIONES EDUCATIVAS': 'OTROS ROBOS',
+    'ROBO A BIENES DE INSTITUCION PUBLICA': 'OTROS ROBOS',
+    'ROBO OTROS': 'OTROS ROBOS',
+    'ROBO DE BIENES PERSONALES AL INTERIOR DEL VEHÍCULO': 'ROBO DE BIENES, ACCESORIOS Y AUTOPARTES DE VEHICULOS',
+    'ROBO EN VÍAS O CARRETERAS': 'OTROS ROBOS',
+    'ROBO DE BIENES A EMPRESA/FABRICA': 'ROBO A UNIDADES ECONOMICAS',
+    'ROBO DE BIENES A ENTIDAD PÚBLICA': 'OTROS ROBOS',
+    'ROBO DE BIENES A INSTITUCION EDUCATIVA': 'OTROS ROBOS',
+    'ROBO A BIENES DE ESTABLECIMIENTOS DE COLECTIVOS U ORGANIZACIONES SOCIALES': 'OTROS ROBOS',
+    'ROBO A EMBARCACIONES': 'OTROS ROBOS',
+    'ROBO A BIENES DE INSTITUCIONES DE SALUD': 'OTROS ROBOS',
+    'ROBO A BIENES DE ENTIDADES FINANCIERAS': 'ROBO A UNIDADES ECONOMICAS',
+    'ROBO A VEHICULOS DE TRANSPORTE DE VALORES': 'OTROS ROBOS',
+    'ROBO DE BIENES A ENTIDAD PRIVADA': 'ROBO A UNIDADES ECONOMICAS',
+    'ROBO DE MOTORES EMBARCACIONES': 'OTROS ROBOS',
+    'ROBO A BANCOS - ENTIDADES  FINANCIERAS': 'ROBO A UNIDADES ECONOMICAS',
+    'HURTO A PERSONAS': 'REVIEW_LABEL',
+    'ROBO A  BOTES PESQUEROS – YATES- FIBRAS-VELEROS ETC.': 'OTROS ROBOS',
+    'HURTO A DOMICILIO': 'REVIEW_LABEL',
+    'HURTO A MOTOS': 'REVIEW_LABEL',
+    'HURTO A BIENES PUBLICOS': 'REVIEW_LABEL',
+    'HURTO A CARROS': 'REVIEW_LABEL',
+    'HURTO A ACCESORIOS': 'REVIEW_LABEL',
+    'HURTO A BIENES DE UNIDADES ECONOMICAS': 'REVIEW_LABEL',
+    'TRANSITO': 'REVIEW_LABEL',
+    'ABIGEATO': 'REVIEW_LABEL',
+    'HURTO A EMBARCACIONES O PARTES EN ESPACIOS ACUATICOS': 'REVIEW_LABEL',
+    'HURTO A BIENES PATRIMONIALES': 'REVIEW_LABEL',
+    'HURTO DE LO REQUISADO': 'REVIEW_LABEL',
+    'ROBO A BIENES PATRIMONIALES': 'OTROS ROBOS',
+    'HURTO DE BIENES DE USO POLICIAL O MILITAR': 'REVIEW_LABEL'}
+
+
+siaf_validados_dict = {
+    'NO_APLICA': 'REVIEW_LABEL',
+    'ROBO DOMICILIOS': 'ROBO A DOMICILIO',
+    'ROBO DE ACCESORIOS DE VEHÍCULOS': 'ROBO DE BIENES, ACCESORIOS Y AUTOPARTES DE VEHICULOS',
+    'ROBO DE VEHÍCULOS': 'ROBO DE CARROS',
+    'ROBO DE MOTOCICLETAS': 'ROBO DE MOTOS',
+    'ROBO EN LOCALES COMERCIALES': 'ROBO A UNIDADES ECONOMICAS',
+    'ROBO A BIENES DE UNIDADES ECONOMICAS': 'ROBO A UNIDADES ECONOMICAS',
+    'ROBO A BIENES DE INSTITUCIONES EDUCATIVAS': 'ROBO A INSTITUCIONES EDUCATIVAS',
+    'ROBO A BIENES DE INSTITUCION PUBLICA': 'ROBO EN INSTITUCIONES PUBLICAS',
+    'ROBO OTROS': 'OTROS ROBOS',
+    'ROBO DE BIENES PERSONALES AL INTERIOR DEL VEHÍCULO': 'ROBO DE BIENES, ACCESORIOS Y AUTOPARTES DE VEHICULOS',
+    'ROBO EN VÍAS O CARRETERAS': 'OTROS ROBOS',
+    'ROBO DE BIENES A EMPRESA/FABRICA': 'ROBO A UNIDADES ECONOMICAS',
+    'ROBO DE BIENES A ENTIDAD PÚBLICA': 'ROBO EN INSTITUCIONES PUBLICAS',
+    'ROBO DE BIENES A INSTITUCION EDUCATIVA': 'ROBO A INSTITUCIONES EDUCATIVAS',
+    'ROBO A BIENES DE ESTABLECIMIENTOS DE COLECTIVOS U ORGANIZACIONES SOCIALES': 'ROBO A ESTABLECIMIENTOS DE COLECTIVOS U ORGANIZACIONES SOCIALES',
+    'ROBO A EMBARCACIONES': 'ROBO A EMBARCACIONES DE ESPACIOS ACUATICOS',
+    'ROBO A BIENES DE INSTITUCIONES DE SALUD': 'OTROS ROBOS',
+    'ROBO A BIENES DE ENTIDADES FINANCIERAS': 'ROBO A UNIDADES ECONOMICAS',
+    'ROBO A VEHICULOS DE TRANSPORTE DE VALORES': 'OTROS ROBOS',
+    'ROBO DE BIENES A ENTIDAD PRIVADA': 'ROBO A UNIDADES ECONOMICAS',
+    'ROBO DE MOTORES EMBARCACIONES': 'ROBO A EMBARCACIONES DE ESPACIOS ACUATICOS',
+    'ROBO A BANCOS - ENTIDADES  FINANCIERAS': 'ROBO A UNIDADES ECONOMICAS',
+    'HURTO A PERSONAS': 'REVIEW_LABEL',
+    'ROBO A  BOTES PESQUEROS – YATES- FIBRAS-VELEROS ETC.': 'ROBO A EMBARCACIONES DE ESPACIOS ACUATICOS',
+    'HURTO A DOMICILIO': 'REVIEW_LABEL',
+    'HURTO A MOTOS': 'REVIEW_LABEL',
+    'HURTO A BIENES PUBLICOS': 'REVIEW_LABEL',
+    'HURTO A CARROS': 'REVIEW_LABEL',
+    'HURTO A ACCESORIOS': 'REVIEW_LABEL',
+    'HURTO A BIENES DE UNIDADES ECONOMICAS': 'REVIEW_LABEL',
+    'TRANSITO': 'REVIEW_LABEL',
+    'ABIGEATO': 'REVIEW_LABEL',
+    'HURTO A EMBARCACIONES O PARTES EN ESPACIOS ACUATICOS': 'REVIEW_LABEL',
+    'HURTO A BIENES PATRIMONIALES': 'REVIEW_LABEL',
+    'HURTO DE LO REQUISADO': 'REVIEW_LABEL',
+    'ROBO A BIENES PATRIMONIALES': 'OTROS ROBOS',
+    'HURTO DE BIENES DE USO POLICIAL O MILITAR': 'REVIEW_LABEL'}
+
+
 def extraer_relato(lista_ndds, sql_connection):
     """
     Devuelve un dataframe que contiene la NDD y el relato de los hechos
@@ -547,3 +629,37 @@ def read_daas_robosML(sample, database_in, table_in):
     print(f"Características de la Cantidad de palabras\n:{daas_df.d_CANTIDAD_PALABRAS.describe()}")
     # hacer un drop de d_CANTIDAD_PALABRAS????
     return daas_df, 'RELATO'
+
+
+def function_union_siaf_model(predicted_value, siaf_value, words_qty, words_qty_threshold, estado):
+    if (words_qty < words_qty_threshold) and (estado==0):
+        if siaf_value!= "REVIEW_LABEL":
+            return siaf_value, 'SIAF'
+        else:
+            return predicted_value, 'MODEL'
+    else:
+        return predicted_value, 'MODEL'
+
+
+def create_model_siaf_unified(dataf,
+                              predicted_delitos_col_label="delitos_seguimiento_predicted", 
+                              siaf_col_label="desagregacion_siaf", 
+                              column_label='delitos_seguimiento_unified', 
+                              words_qty_label='d_CANTIDAD_PALABRAS',
+                              words_qty_threshold=50,
+                              estado_label='ESTADO_ML_SEGUIMIENTO_UNIFIED_COMISION'):
+    tqdm.pandas()
+    dataf[column_label], dataf[column_label+'_origin'] = zip(*dataf.progress_apply(lambda x: function_union_siaf_model(predicted_value=x[predicted_delitos_col_label],
+                                                                                                                       siaf_value=x[siaf_col_label],
+                                                                                                                       words_qty_threshold=words_qty_threshold,
+                                                                                                                       words_qty=x[words_qty_label],
+                                                                                                                       estado=x[estado_label]), axis=1))
+    
+
+
+def create_desagregacion_siaf_new_column(dataf, original_values_column,new_column_name, category_mapping):
+    dataf[new_column_name] = dataf[original_values_column]
+    preprocessing_delitos_seguimiento_comision(dataf=dataf,
+                                               column=new_column_name)
+    dataf[new_column_name] = dataf[new_column_name].replace(category_mapping)
+    
