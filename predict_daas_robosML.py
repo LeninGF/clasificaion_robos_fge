@@ -89,12 +89,6 @@ def predict_robbery_class_daas(dataframe,
     print(f"Predicción {model_name} concluída {datetime.now()}\nDuración: {readable_time}")
 
 
-
-    
-    
-
-
-
 def main(predict_delitos_validados, 
          predict_delitos_seguimiento, 
          csv,
@@ -226,8 +220,8 @@ def main(predict_delitos_validados,
         print(f"Salvando resultados a csv {to_save}")
         output_df.to_csv(to_save, index=False)
     if sql:
-        table_out = TABLE_IN+'_predicted_tmp'+'_'+datetime.now().strftime('%Y_%m_%d')
-        # table_out = TABLE_IN+'_predicted_tmp'
+        # table_out = TABLE_IN+'_predicted_tmp'+'_'+datetime.now().strftime('%Y_%m_%d')
+        table_out = TABLE_IN+'_predicted_tmp'
         print(f"Guardando en base de datos DaaS en tabla sql {table_out}")
         save_df_in_sql(name_table=table_out, dataf=output_df, database='DaaS')
         # implementar la actualizacion de la tabla
