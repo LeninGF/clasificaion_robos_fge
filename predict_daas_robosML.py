@@ -173,7 +173,7 @@ def main(predict_delitos_validados,
                                            predicted_delitos_col_label=DELITOS_SEGUIMIENTOS_COLUMNS_NAMES_DICT['label_name'],
                                            comision_col_label=COLUMNAS_COMISION_DICT['label_seguimiento'],
                                            list_ndds_in_commision=list_ndds_in_comision,
-                                           estado_label='ESTADO_ML_SEGUIMIENTO_UNIFIED_SIAF',
+                                           estado_label='ESTADO_ML_SEGUIMIENTO_UNIFIED_COMISION',
                                            column_label=COLUMN_DELITOS_SEGUIMIENTO_UNIFIED_LABEL)
 
     else:
