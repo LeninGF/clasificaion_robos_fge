@@ -15,6 +15,8 @@ from src.utils import words_qty, predict_text_class_DaaS_tqdm
 from src.utils import seconds_to_readable_time, print_robbery_kinds_qty
 from src.utils import create_delitos_seguimiento_unified, preprocessing_delitos_seguimiento_comision, fix_estadoml
 from src.utils import read_daas_robosML, read_sql_comision_estadistica
+from src.utils import create_model_siaf_unified, create_desagregacion_siaf_new_column
+from src.utils import siaf_seguimiento_dict, siaf_validados_dict
 from datasets import Dataset
 from src.utils import load_text_classification_model
 from datetime import datetime
@@ -45,6 +47,12 @@ COLUMNAS_COMISION_DICT = {'label_seguimiento':"delitos_seguimiento_comision",
                           'label_fecha_corte': "FechaCorteComision"}
 
 COLUMN_DELITOS_SEGUIMIENTO_UNIFIED_LABEL = 'delitos_seguimiento_unified'
+
+COLUMN_SIAF = {'original':'DELITO_DESAGREGACION',
+               'siaf_seguimiento':'DELITO_DESAGREGACION_SEGUIMIENTO',
+               'siaf_validados':'DELITO_DESAGREGACION_VALIDADOS',
+               'column_siaf_modelo_seguimiento':'delitos_seguimiento_unified_siaf',
+               'column_siaf_modelo_validados':'delitos_validados_unified_siaf'}
 
 
 def predict_robbery_class_daas(dataframe, 
@@ -96,7 +104,8 @@ def main(predict_delitos_validados,
          update,
          save_path,
          load_data_comision,
-         bbdd_comision):
+         bbdd_comision,
+         generate_siaf_model):
     DATABASE_IN, TABLE_IN = bbdd_in.split('.')
     print(f"Prediccion de Etiquetas Delitos Seguimiento y Delitos Validados Robos en {DATABASE_IN}.{TABLE_IN}")
 
@@ -107,8 +116,10 @@ def main(predict_delitos_validados,
     xtest_df['ESTADO_ML_SEGUIMIENTO'] = xtest_df['ESTADO_ML']
     xtest_df['ESTADO_ML_VALIDADOS'] = xtest_df['ESTADO_ML']
     xtest_df['ESTADO_ML_SEGUIMIENTO_UNIFIED_COMISION'] = xtest_df['ESTADO_ML']
-    xtest_df['ESTADO_ML_SEGUIMIENTO_UNIFIED_SIAF'] = xtest_df['ESTADO_ML']
-    xtest_df['ESTADO_ML_VALIDADOS_UNIFIED_SIAF'] = xtest_df['ESTADO_ML']
+    # xtest_df['ESTADO_ML_SEGUIMIENTO_UNIFIED_SIAF'] = xtest_df['ESTADO_ML']
+    xtest_df['ESTADO_ML_SEGUIMIENTO_UNIFIED_SIAF'] = 0
+    # xtest_df['ESTADO_ML_VALIDADOS_UNIFIED_SIAF'] = xtest_df['ESTADO_ML']
+    xtest_df['ESTADO_ML_VALIDADOS_UNIFIED_SIAF'] = 0
 
     if predict_delitos_validados:
         predict_robbery_class_daas(dataframe=xtest_df,
@@ -174,8 +185,35 @@ def main(predict_delitos_validados,
     else:
         output_df = xtest_df
 
+    if generate_siaf_model:
+        create_desagregacion_siaf_new_column(dataf=output_df,
+                                             original_values_column=COLUMN_SIAF['original'],
+                                             new_column_name=COLUMN_SIAF['siaf_seguimiento'],
+                                             category_mapping=siaf_seguimiento_dict)
+        create_desagregacion_siaf_new_column(dataf=output_df,
+                                             original_values_column=COLUMN_SIAF['original'],
+                                             new_column_name=COLUMN_SIAF['siaf_validados'],
+                                             category_mapping=siaf_validados_dict)
+        print(f"Generando columna {COLUMN_SIAF['column_siaf_modelo_seguimiento']}: unión entre modelo seguimiento y siaf")
+        create_model_siaf_unified(dataf=output_df,
+                                  predicted_delitos_col_label=DELITOS_SEGUIMIENTOS_COLUMNS_NAMES_DICT['label_name'],
+                                  siaf_col_label=COLUMN_SIAF['siaf_seguimiento'],
+                                  words_qty_label='d_CANTIDAD_PALABRAS',
+                                  words_qty_threshold=THRESHOLD_WORDS_QTY,
+                                  estado_label='ESTADO_ML_SEGUIMIENTO_UNIFIED_SIAF',
+                                  column_label=COLUMN_SIAF['column_siaf_modelo_seguimiento'])
+        
+        print(f"Generando columna {COLUMN_SIAF['column_siaf_modelo_validados']}: unión entre modelo validados y siaf")
+        create_model_siaf_unified(dataf=output_df,
+                                  predicted_delitos_col_label=DELITOS_VALIDADOS_COLUMNS_NAMES_DICT['label_name'],
+                                  siaf_col_label=COLUMN_SIAF['siaf_validados'],
+                                  words_qty_label='d_CANTIDAD_PALABRAS',
+                                  words_qty_threshold=THRESHOLD_WORDS_QTY,
+                                  estado_label='ESTADO_ML_VALIDADOS_UNIFIED_SIAF',
+                                  column_label=COLUMN_SIAF['column_siaf_modelo_validados'])
+        
     
-    print(f"Caracteristicas del dataframe obtenido:\n{xtest_df.info()}")
+    print(f"Caracteristicas del dataframe obtenido:\n{output_df.info()}")
     # print_robbery_kinds_qty(output_df, predicted_label=DELITOS_SEGUIMIENTOS_COLUMNS_NAMES_DICT['label_name'])
     # print_robbery_kinds_qty(output_df, DELITOS_VALIDADOS_COLUMNS_NAMES_DICT['label_name'])
     
@@ -207,6 +245,8 @@ def main(predict_delitos_validados,
                        del1.{COLUMNAS_COMISION_DICT.get('label_validados')} = del2.{COLUMNAS_COMISION_DICT.get('label_validados')}, 
                        del1.{COLUMNAS_COMISION_DICT.get('label_fecha_corte')} = del2.{COLUMNAS_COMISION_DICT.get('label_fecha_corte')},
                        del1.{COLUMN_DELITOS_SEGUIMIENTO_UNIFIED_LABEL} = del2.{COLUMN_DELITOS_SEGUIMIENTO_UNIFIED_LABEL},
+                       del1.{COLUMN_SIAF['column_siaf_modelo_seguimiento']} = del2.{COLUMN_SIAF['column_siaf_modelo_seguimiento']},
+                       del1.{COLUMN_SIAF['column_siaf_modelo_validados']} = del2.{COLUMN_SIAF['column_siaf_modelo_validados']},
                        del1.ESTADO_ML = del2.ESTADO_ML;"""
                        
 
@@ -234,6 +274,7 @@ if __name__=="__main__":
     parser.add_argument('--load_data_comision', action="store_true", help="Si se declara, realiza la carga de los datos de delitos seguimiento de la comision para 2014 a 2022. Delitos Validados se sugiere tomar del modelo")
     parser.add_argument('--bbdd_comision', default='reportes.robos_2014_08012023', help="Especifica la base y \
     la tabla donde reposan los datos de la comisión para los años 2014 - 2022. El valor por defecto es reportes.robos_2014_08012023. El formato es BASE.TABLA")
+    parser.add_argument('--create_siaf_model', action="store_true", help="Si se declara, genera dos columnas unificadas. Una entre las predicciones del modelo de delitos seguimiento con los valores registrados en siaf para cuando la cantidad de palabras del relato es manor al threshold y otra con los valores del modelo de delitos validados")
     parser.add_argument('--save2sql', action="store_true", help="Si se declara, se guarda los resultados obtenidos en tabla de SQL. Por defecto guarda en [DATABASE].[TABLE]")
     parser.add_argument('--save2csv', action="store_true", help="Si se declara, se guarda los resultados obtenidos en archivo CSV. La ubicacion se declara en save_path_files")
     parser.add_argument('--save_path', default='data/processed/', help="Especifica la ubicacion en que se guardaran los resultados obtenidos")
@@ -248,7 +289,8 @@ if __name__=="__main__":
          sql=args.save2sql, 
          update=args.update,
          load_data_comision=args.load_data_comision,
-         bbdd_comision=args.bbdd_comision)
+         bbdd_comision=args.bbdd_comision,
+         generate_siaf_model=args.create_siaf_model)
 
 
 
