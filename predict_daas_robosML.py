@@ -46,7 +46,7 @@ COLUMNAS_COMISION_DICT = {'label_seguimiento':"delitos_seguimiento_comision",
                           'label_validados': "delitos_validados_comision",
                           'label_fecha_corte': "FechaCorteComision"}
 
-COLUMN_DELITOS_SEGUIMIENTO_UNIFIED_LABEL = 'delitos_seguimiento_unified'
+COLUMN_DELITOS_SEGUIMIENTO_UNIFIED_LABEL = 'delitos_seguimiento_unified_comision'
 
 COLUMN_SIAF = {'original':'DELITO_DESAGREGACION',
                'siaf_seguimiento':'DELITO_DESAGREGACION_SEGUIMIENTO',
@@ -239,8 +239,11 @@ def main(predict_delitos_validados,
                        del1.{COLUMNAS_COMISION_DICT.get('label_validados')} = del2.{COLUMNAS_COMISION_DICT.get('label_validados')}, 
                        del1.{COLUMNAS_COMISION_DICT.get('label_fecha_corte')} = del2.{COLUMNAS_COMISION_DICT.get('label_fecha_corte')},
                        del1.{COLUMN_DELITOS_SEGUIMIENTO_UNIFIED_LABEL} = del2.{COLUMN_DELITOS_SEGUIMIENTO_UNIFIED_LABEL},
+                       del1.{COLUMN_DELITOS_SEGUIMIENTO_UNIFIED_LABEL+'_origin'} = del2.{COLUMN_DELITOS_SEGUIMIENTO_UNIFIED_LABEL+'_origin'},
                        del1.{COLUMN_SIAF['column_siaf_modelo_seguimiento']} = del2.{COLUMN_SIAF['column_siaf_modelo_seguimiento']},
+                       del1.{COLUMN_SIAF['column_siaf_modelo_seguimiento']+'_origin'} = del2.{COLUMN_SIAF['column_siaf_modelo_seguimiento']+'_origin'},
                        del1.{COLUMN_SIAF['column_siaf_modelo_validados']} = del2.{COLUMN_SIAF['column_siaf_modelo_validados']},
+                       del1.{COLUMN_SIAF['column_siaf_modelo_validados']+'_origin'} = del2.{COLUMN_SIAF['column_siaf_modelo_validados']+'_origin'},
                        del1.ESTADO_ML = del2.ESTADO_ML;"""
                        
 
