@@ -520,7 +520,7 @@ def print_robbery_kinds_qty(df, predicted_label):
     print(f"Total de registros: {df[predicted_label].value_counts().sum()}")
 
 
-def function_unified_delitos_seguimiento(ndd, predicted_value, labeled_value, ndds_in_commision_list, estado):
+def function_unified_delitos_seguimiento(ndd, predicted_value, labeled_value, ndds_in_commision_list, estado, unified_value, origin_value):
     """create_unified_delitos_seguimiento
     This creates a unified colum delitos seguimiento named delitos_seguimiento_unified
     that keeps the value assigend by comision when ndd is in commision 
@@ -533,6 +533,8 @@ def function_unified_delitos_seguimiento(ndd, predicted_value, labeled_value, nd
                                 by the comision
         ndds_in_commision_list (_list_): list that contains the NDD numbers worked by the comision
         estado (_int_): if 0 we have to look for the ndd in comision and bring its value, if 1 we skip
+        unified_value (_str_): reads previous written value if exists
+        origin_value (_str_): reads previous written value if exists
 
     Returns:
         column delitos_seguimiento_unified: column with data
@@ -540,22 +542,27 @@ def function_unified_delitos_seguimiento(ndd, predicted_value, labeled_value, nd
     # conditions:
     # if ndd in comision change if value in commision not empty or SIN INFORMACION
     # if value in comision is SIN INFORMACION change for predicted value
-    if (ndd in ndds_in_commision_list) and (estado==0):
-        if labeled_value != "SIN INFORMACION":
-            return labeled_value, 'COMISION'
+    if pd.isna(unified_value):
+        if (ndd in ndds_in_commision_list) and (estado==0):
+            if labeled_value != "SIN INFORMACION":
+                return labeled_value, 'COMISION'
+            else:
+                return predicted_value, 'MODEL'
         else:
             return predicted_value, 'MODEL'
     else:
-        return predicted_value, 'MODEL'
-
+        return unified_value, origin_value
     
+
 def create_delitos_seguimiento_unified(dataf, list_ndds_in_commision, ndd_col_label="NDD", predicted_delitos_col_label="delitos_seguimiento_predicted", comision_col_label="delitos_seguimiento_comision", column_label='delitos_seguimiento_unified', estado_label='ESTADO_ML_SEGUIMIENTO_UNIFIED_COMISION'):
     tqdm.pandas()
     dataf[column_label], dataf[column_label+'_origin'] = zip(*dataf.progress_apply(lambda x: function_unified_delitos_seguimiento(ndd=x[ndd_col_label],
                                                                                                                                   predicted_value=x[predicted_delitos_col_label], 
                                                                                                                                   labeled_value=x[comision_col_label],
                                                                                                                                   ndds_in_commision_list=list_ndds_in_commision,
-                                                                                                                                  estado=x[estado_label]), axis=1))
+                                                                                                                                  estado=x[estado_label],
+                                                                                                                                  unified_value=x[column_label],
+                                                                                                                                  origin_value=x[column_label+'_origin']), axis=1))
     
 def preprocessing_delitos_seguimiento_comision(dataf, column):
     """__preprocessing_delitos_seguimiento_comision__
@@ -631,14 +638,17 @@ def read_daas_robosML(sample, database_in, table_in):
     return daas_df, 'RELATO'
 
 
-def function_union_siaf_model(predicted_value, siaf_value, words_qty, words_qty_threshold, estado):
-    if (words_qty < words_qty_threshold) and (estado==0):
-        if siaf_value!= "REVIEW_LABEL":
-            return siaf_value, 'SIAF'
+def function_union_siaf_model(predicted_value, siaf_value, words_qty, words_qty_threshold, estado, unified_siaf_value, origin_value):
+    if pd.isna(unified_siaf_value):
+        if (words_qty < words_qty_threshold) and (estado==0):
+            if siaf_value!= "REVIEW_LABEL":
+                return siaf_value, 'SIAF'
+            else:
+                return predicted_value, 'MODEL'
         else:
             return predicted_value, 'MODEL'
     else:
-        return predicted_value, 'MODEL'
+        return unified_siaf_value, origin_value
 
 
 def create_model_siaf_unified(dataf,
@@ -653,7 +663,9 @@ def create_model_siaf_unified(dataf,
                                                                                                                        siaf_value=x[siaf_col_label],
                                                                                                                        words_qty_threshold=words_qty_threshold,
                                                                                                                        words_qty=x[words_qty_label],
-                                                                                                                       estado=x[estado_label]), axis=1))
+                                                                                                                       estado=x[estado_label],
+                                                                                                                       unified_siaf_value=x[column_label],
+                                                                                                                       origin_value=x[column_label+'_origin']), axis=1))
     
 
 
