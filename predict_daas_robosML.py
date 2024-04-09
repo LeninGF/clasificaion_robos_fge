@@ -9,9 +9,8 @@ import pandas as pd
 import os
 from time import time
 from sqlalchemy import text, create_engine
-from src.utils import extraer_relato, conectar_sql, save_df_in_sql
-from src.utils import format_crimestory
-from src.utils import words_qty, predict_text_class_DaaS_tqdm
+from src.utils import save_df_in_sql
+from src.utils import predict_text_class_DaaS_tqdm
 from src.utils import seconds_to_readable_time, print_robbery_kinds_qty
 from src.utils import create_delitos_seguimiento_unified, preprocessing_delitos_seguimiento_comision, fix_estadoml
 from src.utils import read_daas_robosML, read_sql_comision_estadistica
@@ -22,6 +21,17 @@ from src.utils import load_text_classification_model
 from datetime import datetime
 from argparse import ArgumentParser
 from tqdm import tqdm
+from dotenv import load_dotenv, find_dotenv
+
+
+PATH_ENV = find_dotenv()
+load_dotenv(PATH_ENV)
+DB_USER = os.getenv('DB_USER')
+DB_BBDD_PASSWORD = os.getenv('DB_PASSWORD')
+DB_ANALITICA = os.getenv('DB_ANALITICA')
+DB_ANALITICA_PASSWORD = os.getenv('DB_ANALITICA_PASSWORD')
+DB_BBDD_HOST = os.getenv('DB_HOST')
+
 
 PATH_MODEL_SEGUIMIENTOS = '/home/falconiel/ML_Models/robbery_tf20221113'
 PATH_MODEL_VALIDADOS = '/home/falconiel/ML_Models/robbery_validados_tf20231211'
@@ -55,15 +65,15 @@ COLUMN_SIAF = {'original':'DELITO_DESAGREGACION',
                'column_siaf_modelo_validados':'delitos_validados_unified_siaf'}
 
 
-def predict_robbery_class_daas(dataframe, 
-                          path_model,
-                          label_relato, 
-                          label_name, 
-                          label_score, 
-                          words_qty_label, 
-                          status,
-                          fecha_label, 
-                          model_name,
+def predict_robbery_class_daas(dataframe,
+                               path_model,
+                               label_relato,
+                               label_name,
+                               label_score,
+                               words_qty_label,
+                               status,
+                               fecha_label,
+                               model_name,
                           ):
     print(f"Cargando Modelo {model_name} desde: {path_model}")
     model = load_text_classification_model(path2model=path_model,
@@ -89,21 +99,27 @@ def predict_robbery_class_daas(dataframe,
     print(f"Predicción {model_name} concluída {datetime.now()}\nDuración: {readable_time}")
 
 
-def main(predict_delitos_validados, 
-         predict_delitos_seguimiento, 
+def main(predict_delitos_validados,
+         predict_delitos_seguimiento,
          csv,
-         sql, 
-         sample, 
-         bbdd_in, 
+         sql,
+         sample,
+         bbdd_in,
          update,
          save_path,
          load_data_comision,
          bbdd_comision,
          generate_siaf_model):
+  
     DATABASE_IN, TABLE_IN = bbdd_in.split('.')
     print(f"Prediccion de Etiquetas Delitos Seguimiento y Delitos Validados Robos en {DATABASE_IN}.{TABLE_IN}")
 
-    xtest_df, LABEL_RELATO = read_daas_robosML(sample=sample, database_in=DATABASE_IN, table_in=TABLE_IN)
+    xtest_df, LABEL_RELATO = read_daas_robosML(sample=sample,
+                                               database_in=DATABASE_IN,
+                                               table_in=TABLE_IN,
+                                               db_user=DB_USER,
+                                               db_password=DB_BBDD_PASSWORD,
+                                               db_host=DB_BBDD_HOST)
     # ahora se debe realizar las predicciones de acuerdo a las caracteristicas
     # limitantes: que sea ndd de robos y con un relato de 50 palabras
     time_report_dict = {}
@@ -152,7 +168,10 @@ def main(predict_delitos_validados,
     # loading data from comision
     if load_data_comision:
         print(f"Leyendo datos de la Comisión Interinstitucional desde: {bbdd_comision}")
-        comission_df = read_sql_comision_estadistica(database_table=bbdd_comision)
+        comission_df = read_sql_comision_estadistica(database_table=bbdd_comision,
+                                                     db_user=DB_USER,
+                                                     db_password=DB_BBDD_PASSWORD,
+                                                     db_host=DB_BBDD_HOST)
         print(f"Comision de Estadística tiene {comission_df.shape[0]} registros")
         list_ndds_in_comision = list(set(xtest_df.NDD).intersection(comission_df.NDD))
         print(f"Existen {len(list_ndds_in_comision)} Ndds de RobosML en Comision")
@@ -225,7 +244,13 @@ def main(predict_delitos_validados,
         # table_out = TABLE_IN+'_predicted_tmp'+'_'+datetime.now().strftime('%Y_%m_%d')
         table_out = TABLE_IN+'_predicted_tmp'
         print(f"Guardando en base de datos DaaS en tabla sql {table_out}")
-        save_df_in_sql(name_table=table_out, dataf=output_df, database='DaaS')
+        save_df_in_sql(name_table=table_out,
+                       dataf=output_df,
+                       database='DaaS',
+                       db_user=DB_USER,
+                       db_password=DB_BBDD_PASSWORD,
+                       db_analitica_host=DB_BBDD_HOST
+                       )
         # implementar la actualizacion de la tabla
         if update:
             query = f"""UPDATE {DATABASE_IN}.{TABLE_IN} del1
@@ -249,7 +274,7 @@ def main(predict_delitos_validados,
                        del1.ESTADO_ML = del2.ESTADO_ML;"""
                        
 
-            engine_maria_db = create_engine(f"mysql+pymysql://falconiel:BebuSuKO@192.168.152.197:3306/{DATABASE_IN}"+"?charset=utf8mb4")
+            engine_maria_db = create_engine(f"mysql+pymysql://{DB_USER}:{DB_BBDD_PASSWORD}@{DB_BBDD_HOST}:3306/{DATABASE_IN}"+"?charset=utf8mb4")
             with engine_maria_db.connect() as conn:
                 conn.execute(query)
         
@@ -279,13 +304,13 @@ if __name__=="__main__":
     parser.add_argument('--save_path', default='data/processed/', help="Especifica la ubicacion en que se guardaran los resultados obtenidos")
     parser.add_argument('--update', action="store_true", help="Si se declara, realiza la actualizacion de la base de datos original leida")
     args = parser.parse_args()
-    main(predict_delitos_validados=args.validados, 
+    main(predict_delitos_validados=args.validados,
          predict_delitos_seguimiento=args.seguimiento,
          csv=args.save2csv,
-         save_path=args.save_path, 
-         sample=args.sample, 
-         bbdd_in=args.bbddin, 
-         sql=args.save2sql, 
+         save_path=args.save_path,
+         sample=args.sample,
+         bbdd_in=args.bbddin,
+         sql=args.save2sql,
          update=args.update,
          load_data_comision=args.load_data_comision,
          bbdd_comision=args.bbdd_comision,
