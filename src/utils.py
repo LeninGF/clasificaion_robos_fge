@@ -159,18 +159,19 @@ def extraer_relato(lista_ndds, sql_connection):
     return relatos
     
 
-def conectar_sql(big_data_bbdd=True):
-    # F0s!Hu63
+def conectar_sql(big_data_bbdd=True, db_user='falconiel', analitica_user_password='BebuSuKO', proxy_user_password='N27a34v1', analitica_host='192.168.152.197', proxy_host='192.168.152.8'):
+    
     if big_data_bbdd:
-        engine_maria_db = create_engine("mysql+pymysql://falconiel:BebuSuKO@192.168.152.197", pool_recycle=3600)
-        print("conectando con big data database....")
+        engine_maria_db = create_engine(f"mysql+pymysql://{db_user}:{analitica_user_password}@{analitica_host}", pool_recycle=3600)
+        print(f"conectando {db_user}@{analitica_host}. Espere por favor...")
     else:
-        engine_maria_db = create_engine("mysql+pymysql://falconiel:F0s!Hu63@192.168.152.8", pool_recycle=3600)  # N27a34v1
-        print("conectando con proxy database....")
+        # F0s!Hu63
+        engine_maria_db = create_engine(f"mysql+pymysql://{db_user}:{proxy_user_password}@{proxy_host}", pool_recycle=3600)
+        print(f"conectando {db_user}@{proxy_host}. Espere por favor...")
     print(engine_maria_db.connect())
     return engine_maria_db
-    
-    
+
+
 def format_crimestory(relato_label, dataf):
     """format_crimestory
     This function gives format to the text of Ndd by 
@@ -497,22 +498,33 @@ def asamblea4_ndd_acumuladas_chunked(sql_conn, lista_ndds, chunk_size=1000):
     resp.reset_index(inplace=True)
     return resp
     
-    
-def save_df_in_sql(name_table, dataf, index=False, where="bigData", database="reportes"):
-    """
-    This function saves a dataframe as a Table in a MariaDB MySQL database
-    where: server that has the sql databases
-    """    
+
+def save_df_in_sql(name_table, dataf, index=False, where="bigData", database="reportes", chunksize=1000, db_user='falconiel', db_password='BebuSuKO', db_analitica_host='192.168.152.197', proxy_user_password='N27a34v1',  proxy_host='192.168.152.8'):
+    """save_df_in_sql
+    This function saves a python pandas dataframe in a SQL table
+    Args:
+        name_table (_str_): name of the table
+        dataf (_dataframe_): dataframe with the tabular information to be saved in SQL
+        index (bool, optional): If true, index is saved in sql table. Defaults to False.
+        where (str, optional): Defines the database where information will be stored. Defaults to "bigData" which corresponds to the SQL server of Estadistica i.e. 192.168.152.197
+        database (str, optional): Database in server where data will be stored. Defaults to "reportes".
+        chunksize (int, optional): Using chunks to save data to sql. Defaults to 1000.
+        db_user (str, optional): The user of the Database. Defaults to 'falconiel'.
+        db_password (str, optional): Password to login in Estadistica Server. Defaults to 'BebuSuKO'.
+        db_analitica_host (str, optional): Ip Address of the MySQL Estaistica server. Defaults to '192.168.152.197'.
+        proxy_user_password (str, optional): Password to login in ProxyServer. Defaults to 'N27a34v1'.
+        proxy_host (str, optional): Ip Address of the ProxyServer. Defaults to '192.168.152.8'.
+    """        
     if where=="bigData":
-        engine_maria_db = create_engine(f"mysql+pymysql://falconiel:BebuSuKO@192.168.152.197:3306/{database}"+"?charset=utf8mb4")
+        engine_maria_db = create_engine(f"mysql+pymysql://{db_user}:{db_password}@{db_analitica_host}:3306/{database}"+"?charset=utf8mb4")
     else:
-        engine_maria_db = create_engine(f"mysql+pymysql://falconiel:F0s!Hu63@192.168.152.8:3306/{database}"+"?charset=utf8mb4")
-    print("conexion con base es: {}".format(engine_maria_db.connect()))
-    dataf.to_sql(name_table, engine_maria_db, if_exists='replace', index=index, chunksize=1000)
+        engine_maria_db = create_engine(f"mysql+pymysql://{db_user}:{proxy_user_password}@{proxy_host}:3306/{database}"+"?charset=utf8mb4")
+    print("conexion con host es: {}".format(engine_maria_db.connect()))
+    dataf.to_sql(name_table, engine_maria_db, if_exists='replace', index=index, chunksize=chunksize)
     with engine_maria_db.connect() as conn:
         conn.execute(f'ALTER TABLE `{database}`.`{name_table}` CONVERT TO CHARACTER SET utf8 COLLATE utf8_general_ci;')
-        
 
+        
 def train_valid_test_sizer(dataframe_shape, proportion = (0.7,0.2,0.1)):
     """_train_valid_test_sizer_
     This function returns the sizes of the train_set, valid_set and test_set
@@ -648,7 +660,15 @@ def fix_estadoml(estadoml, estado_seguimiento, estado_validados):
         return estadoml
 
 
-def read_sql_comision_estadistica(database_table):
+def read_sql_comision_estadistica(database_table, 
+                                  db_user,
+                                  db_password,
+                                  db_host):
+    
+    conx = conectar_sql(db_user=db_user,
+                        analitica_user_password=db_password,
+                        analitica_host=db_host)
+    
     database, table = database_table.split('.')
     print(f"Leyendo datos desde {database}.{table}")
     query = text(f"""SELECT 
@@ -661,17 +681,25 @@ def read_sql_comision_estadistica(database_table):
                     FROM {database}.{table} robos
                     WHERE robos.Tipo_Delito_PJ = 'ROBO';
                     """)
-    return pd.read_sql(query, conectar_sql())
+    return pd.read_sql(query, conx)
 
 
-def read_daas_robosML(sample, database_in, table_in):
+def read_daas_robosML(sample,
+                      database_in,
+                      table_in,
+                      db_user,
+                      db_password,
+                      db_host):
     # query = "select * from `DaaS`.`robosML`"
     query = f"select * from `{database_in}`.`{table_in}`"
     if sample:
         query += " limit 1000"
     query += ";"
     query = text(query)
-    daas_df = pd.read_sql(query, conectar_sql())
+    daas_df = pd.read_sql(query,
+                          conectar_sql(db_user=db_user,
+                                       analitica_user_password=db_password,
+                                       analitica_host=db_host))
     print(f"Total de registros: {daas_df.shape}")
     # dando formato al relato de la noticia del delito
     format_crimestory(relato_label='RELATO', dataf=daas_df)
