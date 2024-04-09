@@ -110,10 +110,10 @@ def main(predict_delitos_validados,
     xtest_df['ESTADO_ML_SEGUIMIENTO'] = xtest_df['ESTADO_ML']
     xtest_df['ESTADO_ML_VALIDADOS'] = xtest_df['ESTADO_ML']
     xtest_df['ESTADO_ML_SEGUIMIENTO_UNIFIED_COMISION'] = xtest_df['ESTADO_ML']
-    # xtest_df['ESTADO_ML_SEGUIMIENTO_UNIFIED_SIAF'] = xtest_df['ESTADO_ML']
-    xtest_df['ESTADO_ML_SEGUIMIENTO_UNIFIED_SIAF'] = 0
-    # xtest_df['ESTADO_ML_VALIDADOS_UNIFIED_SIAF'] = xtest_df['ESTADO_ML']
-    xtest_df['ESTADO_ML_VALIDADOS_UNIFIED_SIAF'] = 0
+    xtest_df['ESTADO_ML_SEGUIMIENTO_UNIFIED_SIAF'] = xtest_df['ESTADO_ML']
+    # xtest_df['ESTADO_ML_SEGUIMIENTO_UNIFIED_SIAF'] = 0
+    xtest_df['ESTADO_ML_VALIDADOS_UNIFIED_SIAF'] = xtest_df['ESTADO_ML']
+    # xtest_df['ESTADO_ML_VALIDADOS_UNIFIED_SIAF'] = 0
 
     if predict_delitos_validados:
         predict_robbery_class_daas(dataframe=xtest_df,
