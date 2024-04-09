@@ -41,9 +41,17 @@ has a numeric primary key. You cannot use NDD as a index col
     # This will compute the result and load it into memory
     predictions = predictions.compute()
 
-# TODO -2 
+# TODO 2 
 
 Cuando se ha realizado la prediccion del modelo y se ejecuta el programa nuevamente, los valores con estado distinto de 0 se saltan y se quedan llenos con nulos. Esto afecta la consolidacion de la tabla ya que borra la informacion. Una mejora seria que si el estado es distinto de 0 y concretamente 1,2, o 3, se vuelva a colocar
-el valor que ya esta en la tabla de robos para no perder el dato. Esta es una reparacion urgente
+el valor que ya esta en la tabla de robos para no perder el dato. Esta es una reparacion urgente. Parece que este problema sólo se dio al hacer pruebas por lo que puede ser que tal vez el valor anterior considerado era ya NULL porque se borró la tabla y no el estado. Sin embargo, esta situación no se da en la práctica. **Resuelto**
+
+
+# TODO 3
+
+Las corridas han sido exitosas pero se han llevado acabo con la condicion de que el estado ml de los delitos seguimiento y validados unified siaf empiezan en 0 para todas las ndds. Falta ver que no exista problema cuando el valor varie y se mantenga el dato, caso contrario si esto se dañara habria que dejar con 0.
+
+
+
 
 
