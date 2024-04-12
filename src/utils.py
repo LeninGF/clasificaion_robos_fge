@@ -752,3 +752,32 @@ def create_desagregacion_siaf_new_column(dataf, original_values_column,new_colum
                                                column=new_column_name)
     dataf[new_column_name] = dataf[new_column_name].replace(category_mapping)
     
+
+def draw_presentation(title: str, author: str, date: str, adj:int) -> None:
+    """draw_presentation
+    Draws a presentation for a cmd program where we input the title of the program
+    the name of the author and the date
+    Keyword arguments:
+    title -- str with the title of the program
+    author --str with the name of the author
+    date --str with the datetime.now of the date
+    adj --int allows to control the size of the presentation recomended value 45
+    Return: return_description
+    """
+    
+    # Calculate the length of the longest line
+    max_length = len(title)+ len(author) + len(date) + adj
+
+    # Draw the top border
+    print("*" * max_length)
+
+    # Draw the title
+    print(f"+{' ' * (max_length -2)}+")
+    print(f"+{' ' * ((max_length - len(title)-2) // 2)}{title}{' ' * ((max_length - len(title)-2) // 2)}+")
+    print(f"+{' ' * (max_length -2)}+")
+    
+    # Draw the author and date
+    print(f"+{' ' * 1}{author}{' ' * (max_length - len(author) - len(date) - 3)}{date}+")
+
+    # Draw the bottom border
+    print("*" *max_length)
