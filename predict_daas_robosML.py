@@ -17,7 +17,7 @@ from src.utils import read_daas_robosML, read_sql_comision_estadistica
 from src.utils import create_model_siaf_unified, create_desagregacion_siaf_new_column
 from src.utils import siaf_seguimiento_dict, siaf_validados_dict
 from datasets import Dataset
-from src.utils import load_text_classification_model
+from src.utils import load_text_classification_model, draw_presentation
 from datetime import datetime
 from argparse import ArgumentParser
 from tqdm import tqdm
@@ -110,7 +110,12 @@ def main(predict_delitos_validados,
          load_data_comision,
          bbdd_comision,
          generate_siaf_model):
-  
+
+    draw_presentation(title='DaaS.robosML Predicción Categorías Robo Modelo ML v1.11.0',
+                      author='lenin.g.falconi@gmail.com',
+                      date=datetime.now().strftime('%Y/%m/%d'),
+                      adj=45)
+    
     DATABASE_IN, TABLE_IN = bbdd_in.split('.')
     print(f"Prediccion de Etiquetas Delitos Seguimiento y Delitos Validados Robos en {DATABASE_IN}.{TABLE_IN}")
 
@@ -278,7 +283,10 @@ def main(predict_delitos_validados,
             with engine_maria_db.connect() as conn:
                 conn.execute(query)
         
-    print("##### FIN #####")
+    draw_presentation(adj=45,
+                      author='Lenin Falconí lenin.g.falconi@gmail.com',
+                      date=datetime.now().strftime('%Y/%m/%d'),
+                      title='PROGRAMA TERMINADO')
     return 0
 
 if __name__=="__main__":
