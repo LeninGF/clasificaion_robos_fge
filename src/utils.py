@@ -160,7 +160,19 @@ def extraer_relato(lista_ndds, sql_connection):
     
 
 def conectar_sql(big_data_bbdd=True, db_user='falconiel', analitica_user_password='BebuSuKO', proxy_user_password='N27a34v1', analitica_host='192.168.152.197', proxy_host='192.168.152.8'):
-    
+    """conectar_sql
+    Permite gestionar la conexión con la base de datos MySQL desde donde se puede obtener datos
+    Args:
+        big_data_bbdd (bool, optional): Por defecto establece la conexión con el servidor de estadística 192.168.152.197. Defaults to True.
+        db_user (str, optional): Define el nombre del usuario de la base de datos. Defaults to 'falconiel'.
+        analitica_user_password (str, optional): Define la contraseña para establecer la conexiónn con el servidor de estadística. Defaults to 'BebuSuKO'.
+        proxy_user_password (str, optional): Define la contraseña para establecer la conexión con el servidor ProXY (i.e. 192.168.152.8). Defaults to 'N27a34v1'.
+        analitica_host (str, optional): Dirección Ip del servidor de Analítica - Estadística. Defaults to '192.168.152.197'.
+        proxy_host (str, optional): Dirección Ip del servidor proxy. Defaults to '192.168.152.8'.
+
+    Returns:
+        _type_: conexión a la base de datos
+    """
     if big_data_bbdd:
         engine_maria_db = create_engine(f"mysql+pymysql://{db_user}:{analitica_user_password}@{analitica_host}", pool_recycle=3600)
         print(f"conectando {db_user}@{analitica_host}. Espere por favor...")
@@ -206,6 +218,18 @@ def load_text_classification_model(path2model, seq_len, threshold_words_qty):
     
     
 def predictLabelAndScore(relato, classifier):
+    """predictLabelAndScore
+    This function makes a prediction by inputting the relato (i.e. text with the description of the robbery) and
+    the machine learning model. It returns the major probability of the  set of categories
+
+    Args:
+        relato (_str_): this is the text that describes the robbery
+        classifier (_model_): fine tuned LLM bert model 
+
+    Returns:
+        (str, float): returns a tuple corresponding to (labe, score). Label is the category that the model predicts
+        score is the probability the model stimates
+    """
     y_hat_dict = classifier(relato, truncation=True)[0]
     label = y_hat_dict['label']
     score = y_hat_dict['score']
@@ -213,6 +237,25 @@ def predictLabelAndScore(relato, classifier):
     
 
 def predictLabelAndScoreDaaS(relato, classifier, status, actual_label, actual_score, words_qty, threshold_words_qty):
+    """predictLabelAndScoreDaaS
+    Makes the prediction of the category of the robbery using a fine tuned LLM machine learning model. This function has been
+    adapted from predictLabelAndScore to work with information provided from DaaS.robosML. The function checks the value
+    of status. If 0, the model is loaded, the prediction executed and status updated to 1. The function returns the tuple (label, score, status)
+    If status is 1, the actual values that are in the DaaS.robosML table are kept. If the number of words of the text is below threshold
+    the function returns (OTROS ROBOS, 0, 0)
+    Args:
+        relato (_str_): text of the robbery taken from SIAF or other source
+        classifier (model): fine tuned machine learning model
+        status (int): corresponds to the state of the execution. If 1, prediction was carried out. If 0, no operation is carried out or the number of words is not enough
+        actual_label (str): corresponds to the current value of category from previous run of the program
+        actual_score (float): corresponds to the probability score from previous run of the program
+        words_qty (str): corrsponds to the label where the number of words of the relato has been counted
+        threshold_words_qty (int): this is the heuristic value considered to make a valid prediction. Commonly the value of 50 is used. Relato with number of words below this
+        value are recorded as (OTROS ROBOS,0,0)
+
+    Returns:
+        (str, float, int) : (label, score, status)
+    """
     if status == 0:
         # when status is 0 make a prediction if there are enough words
         if words_qty >= threshold_words_qty:
@@ -582,9 +625,8 @@ def print_robbery_kinds_qty(df, predicted_label):
 
 
 def function_unified_delitos_seguimiento(ndd, predicted_value, labeled_value, ndds_in_commision_list, estado, unified_value, origin_value):
-    """create_unified_delitos_seguimiento
-    This creates a unified colum delitos seguimiento named delitos_seguimiento_unified
-    that keeps the value assigend by comision when ndd is in commision 
+    """function_unified_delitos_seguimiento
+    This function keeps the value assigend by comision when ndd is in commision 
     if the ndd is not in comision or the value assigned by comision is SIN INFORMACION
     the value predicted by the model is taken
     Args:
@@ -594,11 +636,13 @@ def function_unified_delitos_seguimiento(ndd, predicted_value, labeled_value, nd
                                 by the comision
         ndds_in_commision_list (_list_): list that contains the NDD numbers worked by the comision
         estado (_int_): if 0 we have to look for the ndd in comision and bring its value, if 1 we skip
-        unified_value (_str_): reads previous written value if exists
-        origin_value (_str_): reads previous written value if exists
+        unified_value (_str_): returns a unified value by checking if the NDD was reported in Comision. If the Ndd exists 
+                                in Comision, the value assigned by it is kept. If the value in Comission is Null or Sin Information
+                                the predicted value is return
+        origin_value (_str_): returns the origin from where the value in unified_value is taken. It has two values:MODEL, COMISION 
 
     Returns:
-        column delitos_seguimiento_unified: column with data
+        tuple (str, str): (unified_value, origin_value)
     """
     # conditions:
     # if ndd in comision change if value in commision not empty or SIN INFORMACION
@@ -616,6 +660,20 @@ def function_unified_delitos_seguimiento(ndd, predicted_value, labeled_value, nd
     
 
 def create_delitos_seguimiento_unified(dataf, list_ndds_in_commision, ndd_col_label="NDD", predicted_delitos_col_label="delitos_seguimiento_predicted", comision_col_label="delitos_seguimiento_comision", column_label='delitos_seguimiento_unified', estado_label='ESTADO_ML_SEGUIMIENTO_UNIFIED_COMISION'):
+    """create_delitos_seguimiento_unified
+    This function creates a column where the values predicted by the model are complimented with values from Comision Interinstitucional
+    To do this the function function_unified_delitos_seguimiento.
+
+    Args:
+        dataf (dataframe): dataframe with predictions
+        list_ndds_in_commision (list): list of Ndds registered in MySQL table: reportes.robos_2014_08012023
+        ndd_col_label (str, optional): Name of the column with the NDD values. Defaults to "NDD".
+        predicted_delitos_col_label (str, optional): Name of the column with the predicted values. Defaults to "delitos_seguimiento_predicted".
+        comision_col_label (str, optional): Name of the column with values from Comision. Defaults to "delitos_seguimiento_comision".
+        column_label (str, optional): Name of the new column that stores the unified values. Defaults to 'delitos_seguimiento_unified'.
+        estado_label (str, optional): Name of the column where the status of processing the Ndd is stored. It returns 1 when the row was processed. 
+        It keeps the previous value from ESTADO_ML if it is not processed. Defaults to 'ESTADO_ML_SEGUIMIENTO_UNIFIED_COMISION'.
+    """
     tqdm.pandas()
     dataf[column_label], dataf[column_label+'_origin'] = zip(*dataf.progress_apply(lambda x: function_unified_delitos_seguimiento(ndd=x[ndd_col_label],
                                                                                                                                   predicted_value=x[predicted_delitos_col_label], 
@@ -665,6 +723,13 @@ def read_sql_comision_estadistica(database_table,
                                   db_password,
                                   db_host):
     
+    """read_sql_comision_estadistica
+    Reads data from a MySQL table that has the values registered by Comision Interinstitucional from 2014 to 2022
+    Returns:
+        dataframe: dataframe with the results of readed the database. Some of the fields that are read are: NDD,
+        Tipo_Delito_PJ, delitos_seguimiento, delitos_validados, Fecha_Incidente, Fecha_Registro. Data corresponds
+        only to Tipo_Delito_PJ = ROBO
+    """    
     conx = conectar_sql(db_user=db_user,
                         analitica_user_password=db_password,
                         analitica_host=db_host)
@@ -690,6 +755,20 @@ def read_daas_robosML(sample,
                       db_user,
                       db_password,
                       db_host):
+    """read_daas_robosML
+    Reads the MySQL table where the data of Robbery is updated weekly
+
+    Args:
+        sample (bool): when true it reads the first 1000 rows from table
+        database_in (str): Name of the MySQL database that has the data e.g. DaaS
+        table_in (str): Name of the MySQL table has the data e.g. robosML. The complete root is DaaS.robosML
+        db_user (str): User of the database
+        db_password (str): Password of the user of the database
+        db_host (_str): IP of the host of the database
+
+    Returns:
+        _type_: _description_
+    """
     # query = "select * from `DaaS`.`robosML`"
     query = f"select * from `{database_in}`.`{table_in}`"
     if sample:
@@ -716,6 +795,24 @@ def read_daas_robosML(sample,
 
 
 def function_union_siaf_model(predicted_value, siaf_value, words_qty, words_qty_threshold, estado, unified_siaf_value, origin_value):
+    """function_union_siaf_model
+    This function is implemented in order to lower the number of OTROS ROBOS that happen when there is a lack of number of words in 
+    the text of the Robbery Case (relato). To achieve this, the function checks if DESAGREGACION_SIAF has a written value in cases
+    where status = 0 and the number of words is below threshold (e.g. 50). If the value is different from REVIEW_LABEL,
+    the SIAF value is returned. In any other case, the value predicted by the model is returned. The function operates over
+    null data. If the data is not null, the already registered value and origin are used. This is to lower the time in processing
+    Args:
+        predicted_value (str): Category predicted by the LLM machine Model
+        siaf_value (str): Category stored in DESAGREGACION_SIAF after preprocessing with function create_desagregacion_siaf_new_column.
+        words_qty (int): Number of words in Relato
+        words_qty_threshold (int): Threshold number considered to reject model prediction
+        estado (int): Status value registered. When 0, the value from SIAF is checked to be used
+        unified_siaf_value (str): previous value registered in dataframe
+        origin_value (str): previouse origin value registered in dataframe
+
+    Returns:
+        tuple (str, str): (merged_value, origin) 
+    """
     if pd.isna(unified_siaf_value):
         if (words_qty < words_qty_threshold) and (estado==0):
             if siaf_value!= "REVIEW_LABEL":
@@ -735,6 +832,18 @@ def create_model_siaf_unified(dataf,
                               words_qty_label='d_CANTIDAD_PALABRAS',
                               words_qty_threshold=50,
                               estado_label='ESTADO_ML_SEGUIMIENTO_UNIFIED_COMISION'):
+    """create_model_siaf_unified
+    Updates the values in the unified model siaf column according to the logic described in function_union_siaf_model
+
+    Args:
+        dataf (dataframe): dataframe with predictions and data
+        predicted_delitos_col_label (str, optional): Name of the column that stores the predictions of the model. Defaults to "delitos_seguimiento_predicted".
+        siaf_col_label (str, optional): Name of the column with the data from SIAF. Defaults to "desagregacion_siaf".
+        column_label (str, optional): Name of the column where the unified values will be stored or updated. Defaults to 'delitos_seguimiento_unified'.
+        words_qty_label (str, optional): Name of the column with the number of words. Defaults to 'd_CANTIDAD_PALABRAS'.
+        words_qty_threshold (int, optional): Threshold of Number of words. Defaults to 50.
+        estado_label (str, optional): Name of the column with ESTADO value for the task at hand. Defaults to 'ESTADO_ML_SEGUIMIENTO_UNIFIED_COMISION'.
+    """
     tqdm.pandas()
     dataf[column_label], dataf[column_label+'_origin'] = zip(*dataf.progress_apply(lambda x: function_union_siaf_model(predicted_value=x[predicted_delitos_col_label],
                                                                                                                        siaf_value=x[siaf_col_label],
@@ -747,6 +856,17 @@ def create_model_siaf_unified(dataf,
 
 
 def create_desagregacion_siaf_new_column(dataf, original_values_column,new_column_name, category_mapping):
+    """create_desagregacion_siaf_new_column
+    Creates two colums: one that will stored the unified values from model and siaf and other that stores the origin
+    of the value. A mapping for the categories is carried out in order to use the names that Comision Interinstitucional uses.
+    Also a preprocessing of the values stored is carried out to avoid unnecesary spaces or strange characters.
+    Args:
+        dataf (dataframe): dataframe with predicted and stored values
+        original_values_column (str): name of the column with the original data
+        new_column_name (str): name of the new column that will store the merge of the predicted and writen values
+        category_mapping (dictionary): dictionary with the corresponding mapping to rename categories found in original column to the ones used 
+        by comision and the models
+    """
     dataf[new_column_name] = dataf[original_values_column]
     preprocessing_delitos_seguimiento_comision(dataf=dataf,
                                                column=new_column_name)
