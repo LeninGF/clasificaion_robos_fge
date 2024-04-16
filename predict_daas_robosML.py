@@ -209,12 +209,7 @@ def main(predict_delitos_validados,
                                              original_values_column=COLUMN_SIAF['original'],
                                              new_column_name=COLUMN_SIAF['siaf_seguimiento'],
                                              category_mapping=siaf_seguimiento_dict)
-        print(f"Generando columna {COLUMN_SIAF['column_siaf_modelo_validados']}: unión entre modelo validados y siaf")        
-        create_desagregacion_siaf_new_column(dataf=output_df,
-                                             original_values_column=COLUMN_SIAF['original'],
-                                             new_column_name=COLUMN_SIAF['siaf_validados'],
-                                             category_mapping=siaf_validados_dict)
-        
+
         create_model_siaf_unified(dataf=output_df,
                                   predicted_delitos_col_label=DELITOS_SEGUIMIENTOS_COLUMNS_NAMES_DICT['label_name'],
                                   siaf_col_label=COLUMN_SIAF['siaf_seguimiento'],
@@ -223,7 +218,13 @@ def main(predict_delitos_validados,
                                   estado_label='ESTADO_ML_SEGUIMIENTO_UNIFIED_SIAF',
                                   column_label=COLUMN_SIAF['column_siaf_modelo_seguimiento'])
         
-        print(f"Generando columna {COLUMN_SIAF['column_siaf_modelo_validados']}: unión entre modelo validados y siaf")
+        print(f"Generando columna {COLUMN_SIAF['column_siaf_modelo_validados']}: unión entre modelo validados y siaf")        
+        create_desagregacion_siaf_new_column(dataf=output_df,
+                                             original_values_column=COLUMN_SIAF['original'],
+                                             new_column_name=COLUMN_SIAF['siaf_validados'],
+                                             category_mapping=siaf_validados_dict)
+        
+        # print(f"Generando columna {COLUMN_SIAF['column_siaf_modelo_validados']}: unión entre modelo validados y siaf")
         create_model_siaf_unified(dataf=output_df,
                                   predicted_delitos_col_label=DELITOS_VALIDADOS_COLUMNS_NAMES_DICT['label_name'],
                                   siaf_col_label=COLUMN_SIAF['siaf_validados'],
